@@ -14,6 +14,7 @@ def get_must_gather(jobURL: str) -> dict:
               If 'error', includes an 'error_message' key.
     """
     print(f"--- Tool: get_must_gather called for job: {jobURL} ---") # Log tool execution
+    TARGET_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
 
     gsURL = "gs://test-platform-results/logs/"
     jobPath = ""
