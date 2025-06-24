@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "mcp-server": {
+      "command": "podman",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e", "MCP_TRANSPORT",
+        "localhost/mcp-server:latest"
+      ],
+      "env": {
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
