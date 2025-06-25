@@ -1,7 +1,9 @@
 import os
 import asyncio
-from typing import Any
+from typing import Any, Optional, Dict
 from dateutil.parser import parse as parse_date
+
+from drain import DrainExtractor
 
 import httpx
 from mcp.server.fastmcp import FastMCP
@@ -9,6 +11,8 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("prow-mcp-server")
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
+
+_drain_extractor: Optional['DrainExtractor'] = None
 
 async def make_request(
     url: str, method: str = "GET", data: dict[str, Any] = None
@@ -69,6 +73,34 @@ async def get_job_metadata(job_name: str, build_id: str) -> dict:
     except Exception as e:
         return {"error": f"Failed to fetch job info: {str(e)}"}
 
+async def initialize_drain_extractor(verbose: bool = False, context: bool = False, max_clusters: int = 8) -> Dict[str, Any]:
+    """Initialize a DrainExtractor instance with specified parameters.
+    
+    Args:
+        verbose: Enable verbose/profiling mode
+        context: Enable context mode
+        max_clusters: Maximum number of clusters to create
+        
+    Returns:
+        Dictionary containing initialization status and configuration
+    """
+    global _drain_extractor
+    try:
+        _drain_extractor = DrainExtractor(verbose=verbose, context=context, max_clusters=max_clusters)
+        return {
+            "status": "success",
+            "message": "DrainExtractor initialized successfully",
+            "config": {
+                "verbose": verbose,
+                "context": context,
+                "max_clusters": max_clusters
+            }
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to initialize DrainExtractor: {str(e)}"
+        }
 
 @mcp.tool()
 async def get_build_logs(job_name: str, build_id: str) -> dict:
@@ -81,6 +113,26 @@ async def get_build_logs(job_name: str, build_id: str) -> dict:
     Returns:
         Dictionary containing the job logs or error information
     """
+    global _drain_extractor
+    
+    if _drain_extractor is None:
+        # Initialize with default settings if not already initialized
+        init_result = await initialize_drain_extractor()
+        if init_result["status"] == "error":
+            return init_result
+    
+    try:
+        if _drain_extractor is None:
+            return {
+                "status": "error",
+                "message": "DrainExtractor not initialized"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to extract patterns: {str(e)}"
+        } 
+        
     try:
         # Construct the artifacts URL
         artifacts_url = f"{GCS_URL}/{job_name}/{build_id}/artifacts"
@@ -89,10 +141,20 @@ async def get_build_logs(job_name: str, build_id: str) -> dict:
             response = await client.get(f"{GCS_URL}/{job_name}/{build_id}/build-log.txt")
             response.raise_for_status()
             logs = response.text
+            patterns = _drain_extractor(logs)
+        
+        # Convert patterns to a more structured format
+            pattern_results = []
+            for line_number, chunk in patterns:
+                pattern_results.append({
+                    "line_number": line_number,
+                    "chunk": chunk.strip(),
+                    "chunk_length": len(chunk)
+                })
             return {
                 "build_id": build_id,
                 "job_name": job_name,
-                "logs": logs,
+                "logs": pattern_results,
                 "artifacts_url": artifacts_url
             }
     except Exception as e:
