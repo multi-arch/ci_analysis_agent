@@ -174,7 +174,7 @@ async def get_install_logs(job_name: str, build_id: str, test_name: str):
         test_name: The name of the test for which to get install logs
         
     Returns:
-        Dictionary containing the installation logs or error information
+        Dictionary containing the job metadata(job_name, build_id, test_name), installation logs or error information
     """
     try:
         # Construct the artifacts URL

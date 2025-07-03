@@ -1,41 +1,40 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""CI Analysis coordinator: provide root cause analysis for CI failures"""
+
 from google.adk.agents import LlmAgent
-from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
+from google.adk.tools.agent_tool import AgentTool
+
+from . import prompt
+from .sub_agents.installation_analyst import installation_analyst_agent
+from .sub_agents.mustgather_analyst import mustgather_analyst_agent
+MODEL = "gemini-2.0-flash"
 
 
-# TARGET_FOLDER_PATH = os.path.dirname(os.path.abspath(__file__))
- 
-root_agent = LlmAgent(
-    name="root_agent_v1",
-    # model="gemini-2.5-pro-preview-05-06",
-    model="gemini-2.0-flash",
-    # model=LiteLlm(model="ollama/qwen3:4b"),
-    description="Provides analysis of CI jobs, and determines if the cluster installation was successful or not.",
-    global_instruction="You are a helpful Kubernetes and Prow expert assistant. "
-        "You are specialized in Openshift installation."
-        "Your main goal is to analyze the Prow job's installation logs and diagnose possible failures of the cluster installation for the Prow job."
-        "You provide root cause analysis for installation failures and propose solutions if possible."
-        "You are truthful, concise, and helpful."
-        "You never speculate about clusters being installed or fabricate information."
-        "If you do not know the answer, you acknowledge the fact and end your response."
-        "Your responses must be as short as possible."
-        "CI JOB ANALYSIS WORKFLOW:"
-        "-------------------------"
-        "When analyzing a job failure, follow this recommended workflow:"
-        "1. First, get a job's metadata (including test_name) and status by using 'get_job_metadata' tool."
-        "2. Then, once you have the metadata, you can get install logs by using the 'get_install_logs' tool."
-        "3. Check that the installation was successful by looking at the install logs."
-        "4. Only if installation is successful, use 'get_build_logs' to get the job logs." 
-        "5. Analyze the job build logs to determine the root cause of the failure.",
-        
-    tools=[ 
-           MCPToolset(
-            connection_params=StdioServerParameters(
-                command='podman',
-                args=["run", "-i", "-p", "9000:8000", "--rm",  "-e", "MCP_TRANSPORT=stdio", "localhost/mcp-server-template:latest"],
-                tool_filter=['get_build_logs','get_install_logs', 'get_job_metadata'],
-            )
-           ), 
-        ], 
+ci_analysis_advisor = LlmAgent(
+    name="ci_analysis_advisor",
+    model=MODEL,
+    description=(
+        "Analyzes of CI jobs, and provide root cause analysis for failures."
+    ),
+    instruction=prompt.CI_ANALYSIS_COORDINATOR_PROMPT,
+    output_key="ci_analysis_advisor_output",
+    tools=[
+        AgentTool(agent=installation_analyst_agent),
+        AgentTool(agent=mustgather_analyst_agent),
+    ],
 )
 
+root_agent = ci_analysis_advisor
