@@ -16,11 +16,12 @@
 
 from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
+from google.adk.models.lite_llm import LiteLlm
 
 from . import prompt
-from .sub_agents.installation_analyst import installation_analyst_agent
-from .sub_agents.mustgather_analyst import mustgather_analyst_agent
-MODEL = "gemini-2.0-flash"
+from ._sub_agents.installation_analyst import installation_analyst_agent
+# from ._sub_agents.mustgather_analyst import mustgather_analyst_agent
+MODEL = LiteLlm(model="ollama_chat/qwen3:4b")
 
 
 ci_analysis_advisor = LlmAgent(
@@ -33,7 +34,7 @@ ci_analysis_advisor = LlmAgent(
     output_key="ci_analysis_advisor_output",
     tools=[
         AgentTool(agent=installation_analyst_agent),
-        AgentTool(agent=mustgather_analyst_agent),
+        # AgentTool(agent=mustgather_analyst_agent),
     ],
 )
 

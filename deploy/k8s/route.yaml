@@ -1,0 +1,19 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ci-analysis-agent-route
+  namespace: ci-analysis
+  labels:
+    app: ci-analysis-agent
+spec:
+  host: ci-analysis-agent.apps.your-cluster.example.com  # Replace with your cluster's domain
+  to:
+    kind: Service
+    name: ci-analysis-service
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None 

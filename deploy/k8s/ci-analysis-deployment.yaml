@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-analysis-agent
+  namespace: ci-analysis
+  labels:
+    app: ci-analysis-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ci-analysis-agent
+  template:
+    metadata:
+      labels:
+        app: ci-analysis-agent
+    spec:
+      # Ensure scheduling only on linux/amd64 nodes
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      # OpenShift security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      # Wait for Ollama to be ready before starting
+      initContainers:
+      - name: wait-for-ollama
+        image: curlimages/curl:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Ollama to be ready..."
+          until curl -f http://ollama-service:11434/api/version; do
+            echo "Ollama not ready, waiting..."
+            sleep 10
+          done
+          echo "Ollama is ready!"
+      containers:
+      - name: ci-analysis-agent
+        image: ci-analysis-agent:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: ci-analysis-config
+        # OpenShift-compatible security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10 

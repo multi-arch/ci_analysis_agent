@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ollama-model-pull
+  namespace: ci-analysis
+spec:
+  template:
+    spec:
+      # Ensure scheduling only on linux/amd64 nodes
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      # OpenShift security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      restartPolicy: Never
+      containers:
+      - name: model-puller
+        image: curlimages/curl:latest
+        # OpenShift-compatible security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for Ollama service to be ready..."
+          until curl -f http://ollama-service:11434/api/version; do
+            echo "Ollama not ready, waiting..."
+            sleep 10
+          done
+          echo "Ollama is ready, pulling model..."
+          curl -X POST http://ollama-service:11434/api/pull -d '{"name":"qwen3:4b"}'
+          echo "Model pull completed"
+  backoffLimit: 3 
