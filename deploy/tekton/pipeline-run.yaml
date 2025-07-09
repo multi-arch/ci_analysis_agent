@@ -2,7 +2,7 @@ apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   generateName: ci-analysis-agent-pipeline-run-
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 spec:
   serviceAccountName: pipeline-service-account
   pipelineRef:
@@ -43,7 +43,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: docker-registry-secret
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: # Base64 encoded docker config
@@ -57,4 +57,4 @@ data:
 #   --docker-username=<your-username> \
 #   --docker-password=<your-password> \
 #   --docker-email=<your-email> \
-#   -n tekton-pipelines 
+#   -n ci-analysis-<username> 

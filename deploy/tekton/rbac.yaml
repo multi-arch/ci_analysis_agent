@@ -41,6 +41,6 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: pipeline-service-account
-    namespace: tekton-pipelines
+    namespace: NAMESPACE_PLACEHOLDER
 
  

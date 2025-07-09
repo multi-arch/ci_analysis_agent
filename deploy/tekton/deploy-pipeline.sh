@@ -35,59 +35,35 @@ resource_exists() {
     oc get $1 $2 -n $3 &> /dev/null
 }
 
-# Create tekton-pipelines namespace if it doesn't exist
-echo -e "${GREEN}📦 Creating tekton-pipelines namespace...${NC}"
-if ! resource_exists namespace tekton-pipelines ""; then
-    oc create namespace tekton-pipelines
-else
-    echo -e "${YELLOW}Namespace 'tekton-pipelines' already exists${NC}"
-fi
+# Note: Resources will be deployed to user namespaces (ci-analysis-<username>)
+# No centralized namespace required
+echo -e "${GREEN}📦 Pipeline resources will be deployed to user namespaces${NC}"
 
-# Apply RBAC
-echo -e "${GREEN}🔐 Applying RBAC...${NC}"
-oc apply -f rbac.yaml
+# Prepare templates for user deployment
+echo -e "${GREEN}🔧 Preparing pipeline templates...${NC}"
+echo -e "${YELLOW}Templates are ready for deployment to user namespaces${NC}"
+echo -e "${YELLOW}Use the deployment scripts or examples in user-examples.yaml${NC}"
 
-# Apply Tasks
-echo -e "${GREEN}📝 Applying Tasks...${NC}"
-oc apply -f tasks.yaml
+# User secrets need to be created in each user namespace
+echo -e "${YELLOW}📝 Secret creation requirements:${NC}"
+echo -e "${YELLOW}Each user needs to create secrets in their namespace:${NC}"
+echo -e "${YELLOW}kubectl create secret docker-registry docker-registry-secret \\${NC}"
+echo -e "${YELLOW}  --docker-server=quay.io \\${NC}"
+echo -e "${YELLOW}  --docker-username=<your-username> \\${NC}"
+echo -e "${YELLOW}  --docker-password=<your-password> \\${NC}"
+echo -e "${YELLOW}  --docker-email=<your-email> \\${NC}"
+echo -e "${YELLOW}  -n ci-analysis-<username>${NC}"
+echo -e "${YELLOW}${NC}"
+echo -e "${YELLOW}Update GitHub webhook secret in triggers.yaml${NC}"
 
-# Apply Pipeline
-echo -e "${GREEN}🔄 Applying Pipeline...${NC}"
-oc apply -f pipeline.yaml
+echo -e "${GREEN}✅ Pipeline templates prepared!${NC}"
+echo -e "${GREEN}🎯 Next steps for each user:${NC}"
+echo -e "1. Create user namespace: ci-analysis-<username>"
+echo -e "2. Deploy templates to user namespace using sed to replace NAMESPACE_PLACEHOLDER"
+echo -e "3. Create docker registry secret in user namespace"
+echo -e "4. Update GitHub webhook secret in triggers.yaml"
+echo -e "5. Run the pipeline with examples from user-examples.yaml"
+echo -e "6. Monitor the pipeline with: tkn pipelinerun logs --last -f -n ci-analysis-<username>"
 
-# Apply Triggers (optional)
-echo -e "${GREEN}⚡ Applying Triggers...${NC}"
-oc apply -f triggers.yaml
-
-# Check if docker registry secret exists
-if ! resource_exists secret docker-registry-secret tekton-pipelines; then
-    echo -e "${YELLOW}⚠️  Docker registry secret not found.${NC}"
-    echo -e "${YELLOW}Please create it with:${NC}"
-    echo -e "${YELLOW}kubectl create secret docker-registry docker-registry-secret \\${NC}"
-    echo -e "${YELLOW}  --docker-server=quay.io \\${NC}"
-    echo -e "${YELLOW}  --docker-username=<your-username> \\${NC}"
-    echo -e "${YELLOW}  --docker-password=<your-password> \\${NC}"
-    echo -e "${YELLOW}  --docker-email=<your-email> \\${NC}"
-    echo -e "${YELLOW}  -n tekton-pipelines${NC}"
-fi
-
-# Check if GitHub webhook secret exists
-if ! resource_exists secret github-webhook-secret tekton-pipelines; then
-    echo -e "${YELLOW}⚠️  GitHub webhook secret not found.${NC}"
-    echo -e "${YELLOW}Please update the secret in triggers.yaml with your actual webhook secret.${NC}"
-fi
-
-echo -e "${GREEN}✅ Pipeline deployment completed!${NC}"
-echo -e "${GREEN}🎯 Next steps:${NC}"
-echo -e "1. Create docker registry secret (if not already done)"
-echo -e "2. Update GitHub webhook secret in triggers.yaml"
-echo -e "3. Run the pipeline with: oc apply -f pipeline-run.yaml"
-echo -e "4. Monitor the pipeline with: tkn pipelinerun logs --last -f -n tekton-pipelines"
-echo -e "5. Each user will deploy to their own namespace: ci-analysis-<username>"
-
-# Get webhook URL if triggers are deployed
-if resource_exists route ci-analysis-agent-webhook tekton-pipelines; then
-    WEBHOOK_URL=$(oc get route ci-analysis-agent-webhook -n tekton-pipelines -o jsonpath='{.spec.host}')
-    echo -e "${GREEN}🔗 Webhook URL: https://${WEBHOOK_URL}${NC}"
-    echo -e "Configure this URL in your GitHub repository webhooks"
-fi 
+echo -e "${GREEN}📖 For detailed examples, see user-examples.yaml${NC}"
+echo -e "${GREEN}🔗 Each user gets their own webhook URL in their namespace${NC}" 

@@ -101,8 +101,8 @@ LOG_LEVEL=INFO
 ### 5. Build the Prow MCP Server
 
 ```bash
-# Navigate to the prow_mcp_server directory
-cd prow_mcp_server
+# Navigate to the _prow_mcp_server directory
+cd _prow_mcp_server
 
 # Build the container image
 podman build -t mcp-server-template:latest .
@@ -130,8 +130,8 @@ adk web
 python agent.py
 
 # Or run specific sub-agents
-python sub_agents/installation_analyst/agent.py
-python sub_agents/mustgather_analyst/agent.py
+python _sub_agents/installation_analyst/agent.py
+python _sub_agents/mustgather_analyst/agent.py
 ```
 
 #### Option C: Development Mode
@@ -242,16 +242,47 @@ pip install --force-reinstall -r requirements.txt
 ci_analysis_agent/
 ├── agent.py                 # Main agent implementation
 ├── prompt.py               # Agent prompts and instructions
-├── sub_agents/             # Specialized analysis agents
+├── __init__.py             # Package initialization
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Container image definition
+├── _sub_agents/            # Specialized analysis agents
 │   ├── installation_analyst/
+│   │   ├── __init__.py
+│   │   ├── agent.py        # Installation failure analysis
+│   │   └── prompt.py       # Installation analysis prompts
 │   └── mustgather_analyst/
-├── prow_mcp_server/        # MCP server for Prow integration
-├── deploy/                 # Deployment configurations
-└── requirements.txt        # Python dependencies
+│       ├── __init__.py
+│       ├── agent.py        # Must-gather analysis
+│       ├── prompt.py       # Must-gather analysis prompts
+│       ├── must_gather.py  # Must-gather utilities
+│       ├── drain.py        # Log pattern extraction
+│       └── drain3.ini      # Drain3 configuration
+├── _prow_mcp_server/       # MCP server for Prow integration
+│   ├── mcp_server.py       # MCP server implementation
+│   ├── drain.py            # Log pattern extraction
+│   ├── drain3.ini          # Drain3 configuration
+│   ├── Containerfile       # Container image definition
+│   ├── requirements.txt    # Python dependencies
+│   ├── mcp.json            # MCP server configuration
+│   └── README.md           # MCP server documentation
+└── deploy/                 # Deployment configurations
+    ├── tekton/             # Tekton pipeline manifests (RECOMMENDED)
+    │   ├── pipeline.yaml           # Main CI/CD pipeline
+    │   ├── tasks.yaml              # Custom Tekton tasks
+    │   ├── rbac.yaml               # Service account and RBAC
+    │   ├── triggers.yaml           # GitHub webhook triggers
+    │   ├── pipeline-run.yaml       # Pipeline run template
+    │   ├── user-examples.yaml      # Multi-user deployment examples
+    │   ├── deploy-pipeline.sh      # Legacy deployment script
+    │   ├── deploy-user-namespace.sh # User-namespace deployment script
+    │   └── README.md               # Tekton pipeline documentation
+    ├── k8s/                # DEPRECATED: Legacy manual manifests
+    │   └── README.md       # Deprecation notice
+    └── README.md           # Deployment overview
 ```
 
 ### Adding New Features
-1. Create a new sub-agent in `sub_agents/`
+1. Create a new sub-agent in `_sub_agents/`
 2. Update the main agent to include the new functionality
 3. Add appropriate prompts and instructions
 4. Test with sample data
@@ -264,12 +295,102 @@ ci_analysis_agent/
 
 ## Deployment
 
-For production deployment on Kubernetes or OpenShift clusters, see the [`deploy/`](deploy/) directory:
+For production deployment on OpenShift clusters with multi-user support, see the [`deploy/`](deploy/) directory:
 
-- **Kubernetes**: `./deploy/deploy.sh`
-- **OpenShift 4.19+**: `./deploy/deploy-openshift.sh`
+### **Tekton Pipeline Deployment (Recommended)**
 
-Full documentation: [KUBERNETES.md](KUBERNETES.md)
+The CI Analysis Agent uses Tekton pipelines for automated CI/CD with complete multi-user isolation:
+
+```bash
+# Deploy for a specific user
+cd deploy/tekton
+chmod +x deploy-user-namespace.sh
+./deploy-user-namespace.sh <username>
+
+# Example: Deploy for user "alice"
+./deploy-user-namespace.sh alice
+```
+
+### **Multi-User Architecture**
+
+The CI Analysis Agent supports complete multi-user isolation on a single OpenShift cluster:
+
+```mermaid
+graph TB
+    subgraph "OpenShift Cluster"
+        subgraph "ci-analysis-alice namespace"
+            A1[Alice's Pipeline]
+            A2[Alice's Ollama]
+            A3[Alice's CI Analysis Agent]
+            A4[Alice's Route<br/>alice-ci-analysis-agent]
+        end
+        
+        subgraph "ci-analysis-bob namespace"
+            B1[Bob's Pipeline]
+            B2[Bob's Ollama]
+            B3[Bob's CI Analysis Agent]
+            B4[Bob's Route<br/>bob-ci-analysis-agent]
+        end
+        
+        subgraph "ci-analysis-qa namespace"
+            Q1[QA Pipeline]
+            Q2[QA Ollama]
+            Q3[QA CI Analysis Agent]
+            Q4[QA Route<br/>qa-ci-analysis-agent]
+        end
+        
+        subgraph "Persistent Storage"
+            PV1[Alice's Model Data]
+            PV2[Bob's Model Data]
+            PV3[QA Model Data]
+        end
+        
+        A2 --> PV1
+        B2 --> PV2
+        Q2 --> PV3
+    end
+    
+    subgraph "External Systems"
+        GH1[Alice's GitHub Repo]
+        GH2[Bob's GitHub Repo]
+        GH3[QA GitHub Repo]
+        REG[Container Registry<br/>Quay.io]
+        U1[Alice's Users]
+        U2[Bob's Users]
+        U3[QA Users]
+    end
+    
+    GH1 -->|webhook| A1
+    GH2 -->|webhook| B1
+    GH3 -->|webhook| Q1
+    
+    A1 -->|push images| REG
+    B1 -->|push images| REG
+    Q1 -->|push images| REG
+    
+    U1 -->|access| A4
+    U2 -->|access| B4
+    U3 -->|access| Q4
+    
+    style A1 fill:#e1f5fe
+    style B1 fill:#e8f5e8
+    style Q1 fill:#fff3e0
+    style A2 fill:#e1f5fe
+    style B2 fill:#e8f5e8
+    style Q2 fill:#fff3e0
+    style A3 fill:#e1f5fe
+    style B3 fill:#e8f5e8
+    style Q3 fill:#fff3e0
+```
+
+**Key Features:**
+- Each user gets isolated namespace: `ci-analysis-<username>`
+- Complete resource isolation per user
+- Automated GitHub webhook integration
+- Zero shared infrastructure
+- Persistent model storage per user
+
+**Full documentation**: [deploy/tekton/README.md](deploy/tekton/README.md)
 
 ## Support
 
@@ -323,27 +444,29 @@ cd deploy/tekton
 # Deploy all pipeline resources
 ./deploy-pipeline.sh
 
-# Create registry secret
+# Create registry secret in user namespace
 oc create secret docker-registry docker-registry-secret \
   --docker-server=quay.io \
   --docker-username=<your-username> \
   --docker-password=<your-password> \
   --docker-email=<your-email> \
-  -n tekton-pipelines
+  -n ci-analysis-<username>
 
 # Deploy for user "alice"
-./deploy-user.sh alice https://github.com/alice/ci_analysis_agent.git feature/new-analysis alice
+./deploy-user-namespace.sh alice
 
 # Monitor progress
-tkn pipelinerun logs --last -f -n tekton-pipelines
+tkn pipelinerun logs --last -f -n ci-analysis-alice
 ```
 
 ### Multi-User Deployment:
-The pipeline supports multiple users deploying to isolated namespaces. Each user gets their own:
+The pipeline supports multiple users deploying to completely isolated namespaces. Each user gets their own:
 - **Namespace**: `ci-analysis-<username>`
+- **Pipeline & Tasks**: Deployed in user's namespace
 - **Resources**: Prefixed with username (e.g., `alice-ollama`, `bob-ci-analysis-agent`)
 - **Routes**: Individual URLs for each deployment
 - **Storage**: Isolated persistent volumes
+- **Secrets**: Registry credentials in each user namespace
 
 ### Automated Deployment:
 The pipeline supports GitHub webhooks for automatic deployment on code pushes from any repository. The webhook endpoint automatically creates user-specific deployments based on the repository owner.

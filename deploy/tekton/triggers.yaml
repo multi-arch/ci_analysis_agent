@@ -2,7 +2,7 @@ apiVersion: triggers.tekton.dev/v1beta1
 kind: EventListener
 metadata:
   name: ci-analysis-agent-listener
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 spec:
   serviceAccountName: pipeline-service-account
   triggers:
@@ -32,7 +32,7 @@ apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerBinding
 metadata:
   name: ci-analysis-agent-binding
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 spec:
   params:
     - name: git-url
@@ -53,7 +53,7 @@ apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
   name: ci-analysis-agent-template
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 spec:
   params:
     - name: git-url
@@ -73,7 +73,7 @@ spec:
       kind: PipelineRun
       metadata:
         generateName: ci-analysis-agent-pipeline-run-
-        namespace: tekton-pipelines
+        namespace: NAMESPACE_PLACEHOLDER
       spec:
         serviceAccountName: pipeline-service-account
         pipelineRef:
@@ -114,7 +114,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: github-webhook-secret
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 type: Opaque
 stringData:
   secretToken: "your-github-webhook-secret-token"
@@ -124,7 +124,7 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: ci-analysis-agent-webhook
-  namespace: tekton-pipelines
+  namespace: NAMESPACE_PLACEHOLDER
 spec:
   to:
     kind: Service
