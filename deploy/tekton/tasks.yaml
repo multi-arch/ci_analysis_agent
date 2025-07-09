@@ -1,0 +1,228 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: create-namespace
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Create the target namespace and apply base resources
+  params:
+    - name: target-namespace
+      description: Target namespace for deployment
+      type: string
+    - name: user-prefix
+      description: User prefix for resource naming
+      type: string
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: create-namespace
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Creating namespace $(params.target-namespace) and applying base resources..."
+        
+        # Create namespace if it doesn't exist
+        oc create namespace $(params.target-namespace) --dry-run=client -o yaml | oc apply -f -
+        
+        # Create a temporary configmap with user prefix
+        cat $(workspaces.source.path)/deploy/k8s/configmap.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ci-analysis-config/name: $(params.user-prefix)-ci-analysis-config/g" | \
+        oc apply -f -
+        
+        echo "Base resources applied successfully"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-ollama
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Deploy Ollama with persistent storage
+  params:
+    - name: target-namespace
+      description: Target namespace for deployment
+      type: string
+    - name: user-prefix
+      description: User prefix for resource naming
+      type: string
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: deploy-ollama
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Deploying Ollama in namespace $(params.target-namespace)..."
+        
+        # Apply Ollama deployment with namespace and name customization
+        cat $(workspaces.source.path)/deploy/k8s/ollama-deployment.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ollama/name: $(params.user-prefix)-ollama/g" | \
+        sed "s/app: ollama/app: $(params.user-prefix)-ollama/g" | \
+        oc apply -f -
+        
+        cat $(workspaces.source.path)/deploy/k8s/ollama-service.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ollama-service/name: $(params.user-prefix)-ollama-service/g" | \
+        sed "s/app: ollama/app: $(params.user-prefix)-ollama/g" | \
+        oc apply -f -
+        
+        # Wait for Ollama to be ready
+        echo "Waiting for Ollama deployment to be ready..."
+        oc wait --for=condition=available --timeout=300s deployment/$(params.user-prefix)-ollama -n $(params.target-namespace)
+        
+        echo "Ollama deployed successfully"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: deploy-ci-analysis-agent
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Deploy CI Analysis Agent
+  params:
+    - name: image-url
+      description: Container image URL
+      type: string
+    - name: target-namespace
+      description: Target namespace for deployment
+      type: string
+    - name: user-prefix
+      description: User prefix for resource naming
+      type: string
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: update-deployment
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Updating deployment with new image: $(params.image-url)"
+        
+        # Create a temporary deployment file with the new image and namespace
+        cat $(workspaces.source.path)/deploy/k8s/ci-analysis-deployment.yaml | \
+        sed "s|image: ci-analysis-agent:latest|image: $(params.image-url)|g" | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ci-analysis-agent/name: $(params.user-prefix)-ci-analysis-agent/g" | \
+        sed "s/app: ci-analysis-agent/app: $(params.user-prefix)-ci-analysis-agent/g" | \
+        sed "s/http:\/\/ollama-service:11434/http:\/\/$(params.user-prefix)-ollama-service:11434/g" | \
+        sed "s/name: ci-analysis-config/name: $(params.user-prefix)-ci-analysis-config/g" > /tmp/deployment.yaml
+        
+        # Apply the updated deployment
+        oc apply -f /tmp/deployment.yaml
+        
+        # Apply service with namespace and name customization
+        cat $(workspaces.source.path)/deploy/k8s/ci-analysis-service.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ci-analysis-service/name: $(params.user-prefix)-ci-analysis-service/g" | \
+        sed "s/app: ci-analysis-agent/app: $(params.user-prefix)-ci-analysis-agent/g" | \
+        oc apply -f -
+        
+        echo "CI Analysis Agent deployment updated successfully"
+    
+    - name: wait-for-deployment
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Waiting for CI Analysis Agent deployment to be ready..."
+        oc wait --for=condition=available --timeout=300s deployment/$(params.user-prefix)-ci-analysis-agent -n $(params.target-namespace)
+        
+        echo "CI Analysis Agent deployed successfully"
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: load-ollama-model
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Load the required model into Ollama
+  params:
+    - name: target-namespace
+      description: Target namespace for deployment
+      type: string
+    - name: user-prefix
+      description: User prefix for resource naming
+      type: string
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: load-model
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Loading Ollama model in namespace $(params.target-namespace)..."
+        
+        # Apply the model loading job with namespace and name customization
+        cat $(workspaces.source.path)/deploy/k8s/ollama-model-job.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ollama-model-loader/name: $(params.user-prefix)-ollama-model-loader/g" | \
+        sed "s/http:\/\/ollama-service:11434/http:\/\/$(params.user-prefix)-ollama-service:11434/g" | \
+        oc apply -f -
+        
+        # Wait for the job to complete
+        echo "Waiting for model loading job to complete..."
+        oc wait --for=condition=complete --timeout=1200s job/$(params.user-prefix)-ollama-model-loader -n $(params.target-namespace)
+        
+        echo "Model loaded successfully"
+        
+        # Clean up the job
+        oc delete job/$(params.user-prefix)-ollama-model-loader -n $(params.target-namespace) --ignore-not-found=true
+
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: create-route
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Create OpenShift route for external access
+  params:
+    - name: target-namespace
+      description: Target namespace for deployment
+      type: string
+    - name: user-prefix
+      description: User prefix for resource naming
+      type: string
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: create-route
+      image: quay.io/openshift/origin-cli:latest
+      script: |
+        #!/bin/bash
+        set -e
+        
+        echo "Creating OpenShift route in namespace $(params.target-namespace)..."
+        
+        # Apply the route for external access with namespace and name customization
+        cat $(workspaces.source.path)/deploy/k8s/route.yaml | \
+        sed "s/namespace: ci-analysis/namespace: $(params.target-namespace)/g" | \
+        sed "s/name: ci-analysis-agent/name: $(params.user-prefix)-ci-analysis-agent/g" | \
+        sed "s/name: ci-analysis-service/name: $(params.user-prefix)-ci-analysis-service/g" | \
+        oc apply -f -
+        
+        # Get the route URL
+        ROUTE_URL=$(oc get route $(params.user-prefix)-ci-analysis-agent -n $(params.target-namespace) -o jsonpath='{.spec.host}')
+        echo "CI Analysis Agent is accessible at: http://$ROUTE_URL"
+        
+        echo "Route created successfully" 

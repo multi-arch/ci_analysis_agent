@@ -1,0 +1,187 @@
+# Multi-User Pipeline Examples
+
+## User 1: Developer Alice
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: alice-ci-analysis-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: pipeline-service-account
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+  params:
+    - name: git-url
+      value: https://github.com/alice/ci_analysis_agent.git
+    - name: git-revision
+      value: feature/new-analysis
+    - name: target-namespace
+      value: ci-analysis-alice
+    - name: user-prefix
+      value: alice
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: alice
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: feature-new-analysis
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+
+---
+## User 2: Developer Bob
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: bob-ci-analysis-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: pipeline-service-account
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+  params:
+    - name: git-url
+      value: https://github.com/bob/ci_analysis_agent.git
+    - name: git-revision
+      value: dev/performance-improvements
+    - name: target-namespace
+      value: ci-analysis-bob
+    - name: user-prefix
+      value: bob
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: bob
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: dev-performance
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+
+---
+## User 3: QA Team Testing
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: qa-ci-analysis-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: pipeline-service-account
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+  params:
+    - name: git-url
+      value: https://github.com/jeffdyoung/ci_analysis_agent.git
+    - name: git-revision
+      value: main
+    - name: target-namespace
+      value: ci-analysis-qa
+    - name: user-prefix
+      value: qa
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: qa-team
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: qa-testing
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+
+---
+# Quick deployment script for users
+# Save as deploy-user.sh and make executable: chmod +x deploy-user.sh
+
+#!/bin/bash
+# Usage: ./deploy-user.sh <username> <git-url> <git-revision> <image-namespace>
+
+set -e
+
+USERNAME=${1:-dev}
+GIT_URL=${2:-https://github.com/jeffdyoung/ci_analysis_agent.git}
+GIT_REVISION=${3:-main}
+IMAGE_NAMESPACE=${4:-$USERNAME}
+
+echo "Deploying CI Analysis Agent for user: $USERNAME"
+echo "Git URL: $GIT_URL"
+echo "Git Revision: $GIT_REVISION"
+echo "Target Namespace: ci-analysis-$USERNAME"
+
+oc create -f - <<EOF
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: ${USERNAME}-ci-analysis-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: pipeline-service-account
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+  params:
+    - name: git-url
+      value: $GIT_URL
+    - name: git-revision
+      value: $GIT_REVISION
+    - name: target-namespace
+      value: ci-analysis-$USERNAME
+    - name: user-prefix
+      value: $USERNAME
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: $IMAGE_NAMESPACE
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: $USERNAME-$(date +%Y%m%d-%H%M%S)
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+EOF
+
+echo "Pipeline run created successfully!"
+echo "Monitor with: tkn pipelinerun logs --last -f -n tekton-pipelines"
+echo "Check deployment: oc get pods -n ci-analysis-$USERNAME" 

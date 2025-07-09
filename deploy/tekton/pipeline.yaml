@@ -1,0 +1,151 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ci-analysis-agent-pipeline
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Build and deploy CI Analysis Agent with Ollama (Multi-user)
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision to checkout
+      default: main
+    - name: target-namespace
+      type: string
+      description: Target namespace for deployment
+    - name: user-prefix
+      type: string
+      description: User prefix for resource naming
+      default: dev
+    - name: image-registry
+      type: string
+      description: Container image registry
+      default: quay.io
+    - name: image-namespace
+      type: string
+      description: Container image namespace
+      default: jdyoung
+    - name: image-name
+      type: string
+      description: Container image name
+      default: ci-analysis-agent
+    - name: image-tag
+      type: string
+      description: Container image tag
+      default: latest
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for source code and artifacts
+    - name: docker-credentials
+      description: Docker registry credentials
+  tasks:
+    - name: git-clone
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: url
+          value: $(params.git-url)
+        - name: revision
+          value: $(params.git-revision)
+        - name: deleteExisting
+          value: "true"
+
+    - name: create-namespace
+      taskRef:
+        name: create-namespace
+      runAfter:
+        - git-clone
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: build-image
+      taskRef:
+        name: buildah
+        kind: ClusterTask
+      runAfter:
+        - create-namespace
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+      params:
+        - name: IMAGE
+          value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.user-prefix)-$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./Dockerfile
+        - name: CONTEXT
+          value: .
+        - name: TLSVERIFY
+          value: "false"
+
+    - name: deploy-ollama
+      taskRef:
+        name: deploy-ollama
+      runAfter:
+        - build-image
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: deploy-ci-analysis-agent
+      taskRef:
+        name: deploy-ci-analysis-agent
+      runAfter:
+        - deploy-ollama
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: image-url
+          value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.user-prefix)-$(params.image-tag)
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: load-ollama-model
+      taskRef:
+        name: load-ollama-model
+      runAfter:
+        - deploy-ci-analysis-agent
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: create-route
+      taskRef:
+        name: create-route
+      runAfter:
+        - load-ollama-model
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix) 

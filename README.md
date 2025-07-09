@@ -282,3 +282,70 @@ For issues and questions:
 ## License
 
 This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+
+## 🚀 Multi-User Tekton Pipeline Suite
+
+### Files Created:
+- **`deploy/tekton/pipeline.yaml`** - Main pipeline definition with 7 stages (multi-user)
+- **`deploy/tekton/tasks.yaml`** - Custom tasks for deployment operations (multi-user)
+- **`deploy/tekton/rbac.yaml`** - Service account and RBAC permissions
+- **`deploy/tekton/pipeline-run.yaml`** - Example pipeline run configuration
+- **`deploy/tekton/triggers.yaml`** - Automated GitHub webhook triggers (multi-user)
+- **`deploy/tekton/deploy-pipeline.sh`** - Automated deployment script
+- **`deploy/tekton/user-examples.yaml`** - Multi-user deployment examples
+- **`deploy/tekton/README.md`** - Comprehensive documentation
+
+### Pipeline Flow:
+1. **Git Clone** - Fetches source code from any GitHub repository
+2. **Create Namespace** - Sets up user-specific namespaces (`ci-analysis-<username>`)
+3. **Build Image** - Builds container image using Buildah (user-tagged)
+4. **Deploy Ollama** - Deploys Ollama with persistent storage (per user)
+5. **Deploy CI Analysis Agent** - Deploys the main application (per user)
+6. **Load Model** - Loads the qwen3:4b model into Ollama
+7. **Create Route** - Exposes the application via OpenShift Route (per user)
+
+### Key Features:
+- ✅ **Multi-User Support** - Multiple developers on single cluster
+- ✅ **Namespace Isolation** - Each user gets their own namespace
+- ✅ **Resource Prefixing** - All resources prefixed with user identifier
+- ✅ **OpenShift 4.19+ Compatible** - Full security contexts and RBAC
+- ✅ **Automated Triggers** - GitHub webhook integration for auto-deployment
+- ✅ **Persistent Storage** - Ollama model storage across deployments
+- ✅ **Security Hardened** - Non-root containers, minimal permissions
+- ✅ **Comprehensive Monitoring** - Full logging and status tracking
+- ✅ **Registry Integration** - Supports any container registry (Quay.io default)
+
+### Quick Start:
+```bash
+# Navigate to tekton directory
+cd deploy/tekton
+
+# Deploy all pipeline resources
+./deploy-pipeline.sh
+
+# Create registry secret
+oc create secret docker-registry docker-registry-secret \
+  --docker-server=quay.io \
+  --docker-username=<your-username> \
+  --docker-password=<your-password> \
+  --docker-email=<your-email> \
+  -n tekton-pipelines
+
+# Deploy for user "alice"
+./deploy-user.sh alice https://github.com/alice/ci_analysis_agent.git feature/new-analysis alice
+
+# Monitor progress
+tkn pipelinerun logs --last -f -n tekton-pipelines
+```
+
+### Multi-User Deployment:
+The pipeline supports multiple users deploying to isolated namespaces. Each user gets their own:
+- **Namespace**: `ci-analysis-<username>`
+- **Resources**: Prefixed with username (e.g., `alice-ollama`, `bob-ci-analysis-agent`)
+- **Routes**: Individual URLs for each deployment
+- **Storage**: Isolated persistent volumes
+
+### Automated Deployment:
+The pipeline supports GitHub webhooks for automatic deployment on code pushes from any repository. The webhook endpoint automatically creates user-specific deployments based on the repository owner.
+
+The pipeline is production-ready and includes comprehensive error handling, security best practices, and detailed documentation. Perfect for development teams working on the same codebase with different features or environments.

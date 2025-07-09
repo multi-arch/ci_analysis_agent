@@ -1,0 +1,60 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: ci-analysis-agent-pipeline-run-
+  namespace: tekton-pipelines
+spec:
+  serviceAccountName: pipeline-service-account
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+  params:
+    - name: git-url
+      value: https://github.com/jeffdyoung/ci_analysis_agent.git
+    - name: git-revision
+      value: main
+    - name: target-namespace
+      value: ci-analysis-dev
+    - name: user-prefix
+      value: dev
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: jdyoung
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: latest
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+  timeout: 3600s
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docker-registry-secret
+  namespace: tekton-pipelines
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: # Base64 encoded docker config
+    # Example: eyJhdXRocyI6eyJxdWF5LmlvIjp7ImF1dGgiOiJiV0Y0YUdWdmNYODZjR0Z6YzNkdmNtUT0ifX19
+    # This should be replaced with actual registry credentials
+    
+---
+# Example of how to create the docker registry secret
+# kubectl create secret docker-registry docker-registry-secret \
+#   --docker-server=quay.io \
+#   --docker-username=<your-username> \
+#   --docker-password=<your-password> \
+#   --docker-email=<your-email> \
+#   -n tekton-pipelines 
