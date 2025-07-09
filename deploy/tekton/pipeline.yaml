@@ -27,7 +27,7 @@ spec:
     - name: image-namespace
       type: string
       description: Container image namespace
-      default: jdyoung
+      default: your-registry-namespace
     - name: image-name
       type: string
       description: Container image name

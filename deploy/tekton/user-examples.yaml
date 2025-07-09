@@ -94,7 +94,7 @@ spec:
     name: ci-analysis-agent-pipeline
   params:
     - name: git-url
-      value: https://github.com/jeffdyoung/ci_analysis_agent.git
+      value: https://github.com/sherine-k/ci_analysis_agent.git
     - name: git-revision
       value: main
     - name: target-namespace
@@ -132,7 +132,7 @@ spec:
 set -e
 
 USERNAME=${1:-dev}
-GIT_URL=${2:-https://github.com/jeffdyoung/ci_analysis_agent.git}
+GIT_URL=${2:-https://github.com/sherine-k/ci_analysis_agent.git}
 GIT_REVISION=${3:-main}
 IMAGE_NAMESPACE=${4:-$USERNAME}
 
