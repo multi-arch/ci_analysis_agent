@@ -1,3 +1,5 @@
-"""CI Analysis coordinator: provide root cause analysis for CI failures"""
+"""CI Analysis Agent - Main Coordinator"""
 
-from . import agent
+from .agent import ci_analysis_advisor
+
+__all__ = ["ci_analysis_advisor"] 
