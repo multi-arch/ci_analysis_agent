@@ -77,6 +77,54 @@ cd ci_analysis_agent
 
 # Skip model download (if you already have it)
 ./quick-start-containers.sh --no-model
+
+# GPU acceleration options
+./quick-start-containers.sh --gpu nvidia    # Force NVIDIA GPU
+./quick-start-containers.sh --gpu amd       # Force AMD GPU
+./quick-start-containers.sh --cpu-only      # Force CPU-only mode
+```
+
+**Container Management Options:**
+```bash
+# Stop running containers
+./quick-start-containers.sh --stop
+
+# Complete cleanup (containers, volumes, images, pods)
+./quick-start-containers.sh --clean-all
+
+# Selective cleanup options
+./quick-start-containers.sh --remove-volumes    # Remove persistent volumes (loses model data)
+./quick-start-containers.sh --remove-images     # Remove container images (forces re-download)
+./quick-start-containers.sh --remove-pods       # Remove pods (for pod-based deployments)
+```
+
+### Complete Lifecycle Management
+
+The `quick-start-containers.sh` script provides comprehensive lifecycle management:
+
+```bash
+# 🚀 Initial deployment
+./quick-start-containers.sh
+
+# 🛑 Stop running containers (preserves data)
+./quick-start-containers.sh --stop
+
+# 🔄 Restart containers (if already deployed)
+podman start ollama ci-analysis-agent
+
+# 🧹 Clean up specific resources
+./quick-start-containers.sh --remove-volumes    # Remove persistent volumes
+./quick-start-containers.sh --remove-images     # Remove container images
+./quick-start-containers.sh --remove-pods       # Remove pods
+
+# 🗑️ Complete cleanup and fresh start
+./quick-start-containers.sh --clean-all         # Remove everything
+./quick-start-containers.sh                     # Fresh deployment
+
+# 🔧 Maintenance operations
+./quick-start-containers.sh --cleanup           # Clean up before starting
+./quick-start-containers.sh --no-model          # Skip model download
+./quick-start-containers.sh --gpu nvidia        # Force specific GPU
 ```
 
 ### Manual Step-by-Step Setup
@@ -532,6 +580,24 @@ podman run -d \
 
 ### Starting and Stopping
 
+#### Automated Container Management (Recommended)
+
+```bash
+# Stop containers using the script
+./quick-start-containers.sh --stop
+
+# Start containers (if already deployed)
+podman start ollama ci-analysis-agent
+
+# Or restart deployment from scratch
+./quick-start-containers.sh
+
+# Clean up and restart fresh
+./quick-start-containers.sh --cleanup
+```
+
+#### Manual Container Management
+
 ```bash
 # Start all containers in pod
 podman pod start ci-analysis-pod
@@ -685,7 +751,29 @@ sudo setenforce 0
 
 ## 🧹 Cleanup
 
-### Remove Containers and Volumes
+### Automated Cleanup (Recommended)
+
+The `quick-start-containers.sh` script provides convenient cleanup options:
+
+```bash
+# Complete cleanup - removes everything (containers, volumes, images, pods)
+./quick-start-containers.sh --clean-all
+
+# Selective cleanup options
+./quick-start-containers.sh --remove-volumes    # Only remove persistent volumes (loses model data)
+./quick-start-containers.sh --remove-images     # Only remove container images (forces re-download)
+./quick-start-containers.sh --remove-pods       # Only remove pods (for pod-based deployments)
+```
+
+**⚠️ Important Notes:**
+- `--clean-all` removes **everything** including downloaded models
+- `--remove-volumes` will delete all Ollama models (requires re-download)
+- `--remove-images` will delete container images (requires re-download)
+- Use selective options if you want to preserve certain resources
+
+### Manual Cleanup
+
+For more granular control, use manual podman commands:
 
 ```bash
 # Stop and remove all containers in pod
@@ -725,7 +813,20 @@ podman network prune
 
 ## 🔄 Updates and Maintenance
 
-### Updating Containers
+### Automated Updates (Recommended)
+
+```bash
+# Update the codebase
+git pull origin main
+
+# Clean up old containers and images
+./quick-start-containers.sh --clean-all
+
+# Deploy with latest code and images
+./quick-start-containers.sh
+```
+
+### Manual Updates
 
 ```bash
 # Pull latest images
@@ -743,6 +844,22 @@ podman rm ci-analysis-agent ollama
 
 # Start new containers with same configuration
 # (Use your preferred method from above)
+```
+
+### Maintenance Operations
+
+```bash
+# Regular maintenance - clean up unused resources
+./quick-start-containers.sh --remove-images     # Remove old images
+podman system prune -f                          # Clean up unused resources
+
+# Model management
+./quick-start-containers.sh --remove-volumes    # Remove models (if needed)
+./quick-start-containers.sh --no-model          # Skip model download on restart
+
+# Performance optimization
+./quick-start-containers.sh --gpu nvidia        # Ensure GPU acceleration
+./quick-start-containers.sh --cleanup           # Clean restart for performance
 ```
 
 ### Backup and Restore
@@ -819,6 +936,58 @@ sudo systemctl enable --now ollama.service
 
 # Mount tmp filesystem for better I/O
 --tmpfs /tmp:rw,noexec,nosuid,size=2g
+```
+
+## 📋 Quick Reference
+
+### Script Command Summary
+
+```bash
+# Deployment
+./quick-start-containers.sh                     # Start with auto GPU detection
+./quick-start-containers.sh --gpu nvidia        # Force NVIDIA GPU
+./quick-start-containers.sh --gpu amd           # Force AMD GPU
+./quick-start-containers.sh --cpu-only          # Force CPU-only mode
+./quick-start-containers.sh -m llama3:8b        # Use different model
+./quick-start-containers.sh -p 3000             # Use different port
+
+# Management
+./quick-start-containers.sh --stop              # Stop running containers
+./quick-start-containers.sh --cleanup           # Clean up before starting
+
+# Cleanup
+./quick-start-containers.sh --clean-all         # Remove everything
+./quick-start-containers.sh --remove-volumes    # Remove persistent volumes only
+./quick-start-containers.sh --remove-images     # Remove container images only
+./quick-start-containers.sh --remove-pods       # Remove pods only
+
+# Advanced
+./quick-start-containers.sh --no-model          # Skip model download
+./quick-start-containers.sh --help              # Show all options
+```
+
+### Common Workflows
+
+```bash
+# Fresh deployment
+./quick-start-containers.sh
+
+# Stop temporarily (preserves data)
+./quick-start-containers.sh --stop
+podman start ollama ci-analysis-agent           # Resume later
+
+# Update deployment
+git pull origin main
+./quick-start-containers.sh --clean-all
+./quick-start-containers.sh
+
+# Switch models
+./quick-start-containers.sh --remove-volumes
+./quick-start-containers.sh -m llama3:8b
+
+# Troubleshooting
+./quick-start-containers.sh --cleanup           # Clean restart
+./quick-start-containers.sh --cpu-only          # Disable GPU if issues
 ```
 
 This containerized approach provides a clean, isolated environment for running the CI Analysis Agent with excellent portability and reproducibility across different systems. 
