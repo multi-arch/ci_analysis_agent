@@ -19,6 +19,7 @@ OLLAMA_VOLUME="ollama-data"
 OLLAMA_MODEL="qwen3:4b"
 AGENT_PORT="8000"
 OLLAMA_PORT="11434"
+USE_GPU="auto"  # auto, nvidia, amd, none
 
 # Function to print colored output
 print_status() {
@@ -50,6 +51,67 @@ check_podman() {
         exit 1
     fi
     print_success "Podman is available"
+}
+
+# Function to detect GPU capabilities
+detect_gpu() {
+    local gpu_type="none"
+    
+    # Check for NVIDIA GPU
+    if command_exists nvidia-smi && nvidia-smi >/dev/null 2>&1; then
+        gpu_type="nvidia"
+        print_success "NVIDIA GPU detected"
+    # Check for AMD GPU (ROCm)
+    elif command_exists rocm-smi && rocm-smi >/dev/null 2>&1; then
+        gpu_type="amd"
+        print_success "AMD GPU detected"
+    # Check for Intel GPU (if needed in future)
+    elif lspci | grep -i "vga\|3d\|display" | grep -i intel >/dev/null 2>&1; then
+        print_warning "Intel GPU detected but not supported for LLM acceleration"
+        gpu_type="none"
+    else
+        print_warning "No compatible GPU detected, using CPU-only mode"
+        gpu_type="none"
+    fi
+    
+    echo "$gpu_type"
+}
+
+# Function to check GPU runtime support
+check_gpu_runtime() {
+    local gpu_type="$1"
+    
+    case "$gpu_type" in
+        "nvidia")
+            if ! command_exists nvidia-container-toolkit; then
+                print_error "NVIDIA Container Toolkit not found. Please install it:"
+                echo "  sudo dnf install nvidia-container-toolkit  # Fedora/RHEL"
+                echo "  sudo apt install nvidia-container-toolkit  # Ubuntu/Debian"
+                return 1
+            fi
+            
+            # Test if podman can access GPU
+            if ! podman run --rm --device nvidia.com/gpu=all nvidia/cuda:12.0-base-ubuntu20.04 nvidia-smi >/dev/null 2>&1; then
+                print_error "Podman cannot access NVIDIA GPU. Please configure:"
+                echo "  sudo nvidia-ctk runtime configure --runtime=podman"
+                echo "  sudo systemctl restart podman"
+                return 1
+            fi
+            print_success "NVIDIA GPU runtime configured"
+            ;;
+        "amd")
+            if ! ls /dev/dri/render* >/dev/null 2>&1; then
+                print_error "AMD GPU devices not found in /dev/dri/"
+                return 1
+            fi
+            print_success "AMD GPU devices detected"
+            ;;
+        "none")
+            print_status "Using CPU-only mode"
+            ;;
+    esac
+    
+    return 0
 }
 
 # Function to cleanup existing containers
@@ -89,12 +151,30 @@ create_volume() {
 
 # Function to start Ollama container
 start_ollama() {
-    print_status "Starting Ollama container..."
+    local gpu_type="$1"
+    local gpu_args=""
+    
+    # Configure GPU arguments based on type
+    case "$gpu_type" in
+        "nvidia")
+            gpu_args="--device nvidia.com/gpu=all"
+            print_status "Starting Ollama container with NVIDIA GPU support..."
+            ;;
+        "amd")
+            gpu_args="--device /dev/dri --device /dev/kfd --security-opt seccomp=unconfined"
+            print_status "Starting Ollama container with AMD GPU support..."
+            ;;
+        "none")
+            print_status "Starting Ollama container in CPU-only mode..."
+            ;;
+    esac
+    
     podman run -d \
         --name "$OLLAMA_CONTAINER" \
         -p "$OLLAMA_PORT:$OLLAMA_PORT" \
         -v "$OLLAMA_VOLUME:/root/.ollama" \
         -e OLLAMA_HOST=0.0.0.0:$OLLAMA_PORT \
+        $gpu_args \
         ollama/ollama:latest
     
     print_success "Ollama container started"
@@ -178,6 +258,8 @@ verify_deployment() {
 
 # Function to show status
 show_status() {
+    local gpu_type="$1"
+    
     echo ""
     echo "================================================================="
     echo "                 🚀 DEPLOYMENT SUCCESSFUL! 🚀"
@@ -185,6 +267,20 @@ show_status() {
     echo ""
     echo "🌐 Web Interface: http://localhost:$AGENT_PORT"
     echo "🤖 Ollama API:    http://localhost:$OLLAMA_PORT"
+    
+    # Show GPU status
+    case "$gpu_type" in
+        "nvidia")
+            echo "🎮 GPU Mode:      NVIDIA GPU acceleration enabled"
+            ;;
+        "amd")
+            echo "🎮 GPU Mode:      AMD GPU acceleration enabled"
+            ;;
+        "none")
+            echo "🎮 GPU Mode:      CPU-only mode"
+            ;;
+    esac
+    
     echo ""
     echo "📊 Container Status:"
     podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -198,6 +294,14 @@ show_status() {
     echo "  • Stop containers:     podman stop $OLLAMA_CONTAINER $AGENT_CONTAINER"
     echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
     echo "  • Remove containers:   podman rm -f $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    
+    # GPU-specific commands
+    if [ "$gpu_type" = "nvidia" ]; then
+        echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER nvidia-smi"
+    elif [ "$gpu_type" = "amd" ]; then
+        echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER rocm-smi"
+    fi
+    
     echo ""
     echo "📖 For more information, see: CONTAINERIZED-DEPLOYMENT.md"
     echo "================================================================="
@@ -215,18 +319,23 @@ show_help() {
     echo "  -m, --model MODEL Set the Ollama model to use (default: $OLLAMA_MODEL)"
     echo "  -p, --port PORT   Set the agent port (default: $AGENT_PORT)"
     echo "  --no-model        Skip pulling the Ollama model"
+    echo "  --gpu TYPE        GPU type to use: auto, nvidia, amd, none (default: $USE_GPU)"
+    echo "  --cpu-only        Force CPU-only mode, disable GPU detection"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Start with default settings"
+    echo "  $0                    # Start with default settings (auto GPU detection)"
     echo "  $0 -c                 # Clean up and start fresh"
     echo "  $0 -m llama3:8b       # Use a different model"
     echo "  $0 -p 3000            # Use port 3000 instead of 8000"
+    echo "  $0 --gpu nvidia       # Force NVIDIA GPU usage"
+    echo "  $0 --cpu-only         # Force CPU-only mode"
 }
 
 # Main function
 main() {
     local cleanup=false
     local skip_model=false
+    local gpu_type="auto"
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -251,6 +360,14 @@ main() {
                 skip_model=true
                 shift
                 ;;
+            --gpu)
+                USE_GPU="$2"
+                shift 2
+                ;;
+            --cpu-only)
+                USE_GPU="none"
+                shift
+                ;;
             *)
                 print_error "Unknown option: $1"
                 show_help
@@ -264,6 +381,21 @@ main() {
     # Check prerequisites
     check_podman
     
+    # Determine GPU type
+    if [ "$USE_GPU" = "auto" ]; then
+        gpu_type=$(detect_gpu)
+    else
+        gpu_type="$USE_GPU"
+    fi
+    
+    # Validate GPU runtime if needed
+    if [ "$gpu_type" != "none" ]; then
+        if ! check_gpu_runtime "$gpu_type"; then
+            print_warning "GPU runtime check failed, falling back to CPU-only mode"
+            gpu_type="none"
+        fi
+    fi
+    
     # Cleanup if requested
     if [ "$cleanup" = true ]; then
         cleanup_existing
@@ -271,7 +403,7 @@ main() {
     
     # Start deployment
     create_volume
-    start_ollama
+    start_ollama "$gpu_type"
     
     if [ "$skip_model" = false ]; then
         pull_model
@@ -279,7 +411,7 @@ main() {
     
     start_agent
     verify_deployment
-    show_status
+    show_status "$gpu_type"
 }
 
 # Trap to cleanup on exit

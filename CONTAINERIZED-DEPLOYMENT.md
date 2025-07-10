@@ -167,6 +167,250 @@ podman logs ci-analysis-agent
 podman logs ollama
 ```
 
+## 🎮 GPU Acceleration Support
+
+GPU acceleration significantly improves Ollama inference speed. This guide supports both NVIDIA and AMD GPUs.
+
+### **NVIDIA GPU Setup**
+
+#### 1. Install NVIDIA Drivers and Container Toolkit
+
+**Fedora/RHEL:**
+```bash
+# Install NVIDIA drivers
+sudo dnf install akmod-nvidia xorg-x11-drv-nvidia-cuda
+
+# Install container toolkit
+sudo dnf install nvidia-container-toolkit
+
+# Reboot to load drivers
+sudo reboot
+```
+
+**Ubuntu/Debian:**
+```bash
+# Install NVIDIA drivers
+sudo apt update
+sudo apt install nvidia-driver-535 nvidia-utils-535
+
+# Install container toolkit
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+sudo apt update
+sudo apt install nvidia-container-toolkit
+
+# Reboot to load drivers
+sudo reboot
+```
+
+#### 2. Configure Podman for NVIDIA GPU
+
+```bash
+# Configure runtime
+sudo nvidia-ctk runtime configure --runtime=podman
+sudo systemctl restart podman
+
+# Test GPU access
+nvidia-smi
+podman run --rm --device nvidia.com/gpu=all nvidia/cuda:12.0-base-ubuntu20.04 nvidia-smi
+```
+
+#### 3. Deploy with NVIDIA GPU
+
+```bash
+# Auto-detect and use NVIDIA GPU
+./quick-start-containers.sh
+
+# Force NVIDIA GPU usage
+./quick-start-containers.sh --gpu nvidia
+
+# Check GPU usage
+podman exec ollama nvidia-smi
+```
+
+### **AMD GPU Setup**
+
+#### 1. Install AMD ROCm
+
+**Fedora/RHEL:**
+```bash
+# Install ROCm
+sudo dnf install rocm-dev rocm-smi
+
+# Add user to render group
+sudo usermod -a -G render $USER
+
+# Reboot
+sudo reboot
+```
+
+**Ubuntu/Debian:**
+```bash
+# Install ROCm
+wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
+echo 'deb [arch=amd64] https://repo.radeon.com/rocm/apt/debian/ ubuntu main' | sudo tee /etc/apt/sources.list.d/rocm.list
+sudo apt update
+sudo apt install rocm-dev rocm-smi
+
+# Add user to render group
+sudo usermod -a -G render $USER
+
+# Reboot
+sudo reboot
+```
+
+#### 2. Deploy with AMD GPU
+
+```bash
+# Auto-detect and use AMD GPU
+./quick-start-containers.sh
+
+# Force AMD GPU usage
+./quick-start-containers.sh --gpu amd
+
+# Check GPU usage
+podman exec ollama rocm-smi
+```
+
+### **GPU Performance Comparison**
+
+| GPU Type | Inference Speed | Memory Usage | Power Consumption |
+|----------|----------------|--------------|-------------------|
+| NVIDIA RTX 4090 | ~100 tokens/s | 8-12 GB | 200-300W |
+| NVIDIA RTX 3080 | ~60 tokens/s | 6-10 GB | 150-200W |
+| AMD RX 7900 XTX | ~40 tokens/s | 8-12 GB | 150-250W |
+| CPU Only (16 cores) | ~5-10 tokens/s | 4-8 GB | 50-100W |
+
+### **GPU Troubleshooting**
+
+#### NVIDIA Issues
+
+**Problem**: `nvidia-smi` not found
+```bash
+# Install drivers
+sudo dnf install nvidia-driver nvidia-utils  # Fedora
+sudo apt install nvidia-driver-535           # Ubuntu
+```
+
+**Problem**: Container can't access GPU
+```bash
+# Reconfigure runtime
+sudo nvidia-ctk runtime configure --runtime=podman
+sudo systemctl restart podman
+```
+
+**Problem**: Out of memory errors
+```bash
+# Use smaller model
+./quick-start-containers.sh -m qwen3:4b
+
+# Or check GPU memory
+nvidia-smi
+```
+
+#### AMD Issues
+
+**Problem**: No GPU devices found
+```bash
+# Check devices
+ls -la /dev/dri/
+# Should show renderD128, renderD129, etc.
+
+# Check permissions
+groups $USER
+# Should include 'render' group
+```
+
+**Problem**: ROCm not detected
+```bash
+# Install ROCm
+sudo dnf install rocm-dev rocm-smi
+# or
+sudo apt install rocm-dev rocm-smi
+```
+
+### **GPU Monitoring**
+
+#### Real-time GPU monitoring:
+
+**NVIDIA:**
+```bash
+# Watch GPU usage
+watch -n 1 podman exec ollama nvidia-smi
+
+# Detailed monitoring
+podman exec ollama nvidia-smi -l 1
+```
+
+**AMD:**
+```bash
+# Watch GPU usage
+watch -n 1 podman exec ollama rocm-smi
+
+# Detailed monitoring
+podman exec ollama rocm-smi -d
+```
+
+### **Performance Optimization**
+
+#### Model Selection for GPU:
+
+**High-end GPU (24GB+ VRAM):**
+```bash
+./quick-start-containers.sh -m llama3:70b
+```
+
+**Mid-range GPU (12-16GB VRAM):**
+```bash
+./quick-start-containers.sh -m llama3:13b
+```
+
+**Entry-level GPU (8GB VRAM):**
+```bash
+./quick-start-containers.sh -m llama3:8b
+```
+
+**Low VRAM (4-6GB):**
+```bash
+./quick-start-containers.sh -m qwen3:4b
+```
+
+## 📋 Requirements
+
+- **System**: Linux (tested on Fedora, Ubuntu, RHEL)
+- **Podman** 4.0+ (or Docker as alternative)
+- **CPU**: 4+ cores recommended
+- **RAM**: 8GB+ (16GB+ recommended)
+- **Storage**: 20GB+ free space
+- **GPU** (optional): NVIDIA RTX series or AMD RX series
+
+## 🛠 Installation
+
+### Install Podman
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install podman
+```
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update && sudo apt install podman
+```
+
+**macOS:**
+```bash
+brew install podman
+podman machine init
+podman machine start
+```
+
+**Verify installation:**
+```bash
+podman --version
+```
+
 ## 🔧 Detailed Configuration
 
 ### Environment Variables
