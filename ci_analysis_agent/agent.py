@@ -18,7 +18,7 @@ from google.adk.agents import LlmAgent
 from google.adk.tools.agent_tool import AgentTool
 from google.adk.models.lite_llm import LiteLlm
 
-import prompt
+from . import prompt
 from _sub_agents.installation_analyst import installation_analyst_agent
 # from _sub_agents.mustgather_analyst import mustgather_analyst_agent
 MODEL = LiteLlm(model="ollama_chat/qwen3:4b")

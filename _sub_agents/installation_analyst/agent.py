@@ -1,22 +1,16 @@
 from google.adk import Agent
-from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters
 from google.adk.models.lite_llm import LiteLlm
 from . import prompt
 
 MODEL = LiteLlm(model="ollama_chat/qwen3:4b")
-
 
 installation_analyst_agent = Agent(
     model=MODEL,
     name="installation_analyst_agent",
     instruction=prompt.INSTALLATION_SPECIALIST_PROMPT,
     output_key="installation_analysis_output",
-    tools=[   MCPToolset(
-        connection_params=StdioServerParameters(
-            command='podman',
-            args=["run", "-i", "-p", "9000:8000", "--rm",  "-e", "MCP_TRANSPORT=stdio", "localhost/mcp-server-template:latest"],
-        ),
-        tool_filter=['get_install_logs', 'get_job_metadata'],
-    ), 
+    tools=[
+        # MCPToolset temporarily disabled to fix podman error
+        # TODO: Configure MCP server to run directly instead of in separate container
     ],
 )

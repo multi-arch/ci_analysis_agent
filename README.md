@@ -66,7 +66,25 @@ cd ci_analysis_agent
 # git remote add upstream https://github.com/sherine-k/ci_analysis_agent.git
 ```
 
-### 2. Install Dependencies
+### 2. Choose Your Installation Method
+
+#### Option A: Containerized Deployment (Recommended)
+For the easiest setup with better isolation and consistency:
+
+📦 **[See Containerized Deployment Guide](./CONTAINERIZED-DEPLOYMENT.md)**
+
+**🚀 Super Quick Start:** `./quick-start-containers.sh` (automated setup)
+
+This method runs both the CI Analysis Agent and Ollama in containers using Podman, providing:
+- Complete isolation from host system
+- Consistent environment across different machines
+- Easy cleanup and management
+- Resource control and monitoring
+- Automated setup with one command
+
+#### Option B: Traditional Installation
+
+### 3. Install Dependencies
 
 #### Install Python Dependencies
 ```bash
@@ -102,7 +120,7 @@ npm install -g @google/adk
 npm install @google/adk
 ```
 
-### 3. Setup Local LLM Model
+### 4. Setup Local LLM Model
 
 ```bash
 # Pull the qwen3:4b model (recommended)
@@ -115,7 +133,7 @@ ollama list
 ollama run qwen3:4b "Hello, how are you?"
 ```
 
-### 4. Environment Configuration
+### 5. Environment Configuration
 
 Create a `.env` file in the project root:
 
@@ -131,7 +149,7 @@ OLLAMA_API_BASE=http://localhost:11434
 LOG_LEVEL=INFO
 ```
 
-### 5. Build the Prow MCP Server
+### 6. Build the Prow MCP Server
 
 ```bash
 # Navigate to the _prow_mcp_server directory
@@ -146,7 +164,7 @@ podman build -t mcp-server-template:latest .
 cd ..
 ```
 
-### 6. Run the Application
+### 7. Run the Application
 
 #### Option A: Using ADK Web Interface (Recommended)
 ```bash

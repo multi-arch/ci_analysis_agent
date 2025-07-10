@@ -1,0 +1,145 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+logs/
+tmp/
+
+# Documentation and example files
+*.md
+docs/
+examples/
+
+# Container and deployment files
+docker-compose.yml
+docker-compose.yaml
+Dockerfile.*
+.dockerignore
+quick-start-containers.sh
+
+# Kubernetes and OpenShift deployment files
+deploy/
+k8s/
+openshift/
+
+# Test files
+test/
+tests/
+*_test.py
+*_tests.py
+pytest.ini
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Local environment and secrets
+.env
+.env.local
+.env.*.local
+.secret
+secrets/
+*.key
+*.pem
+
+# Backup and temporary files
+*.bak
+*.backup
+*.orig
+
+# Dependencies that should be installed during build
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Model files (should be downloaded in container)
+models/
+*.model
+*.bin
+
+# Large binary files
+*.tar
+*.tar.gz
+*.zip
+*.rar
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# PyCharm
+.idea/ 
