@@ -13,7 +13,6 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-POD_NAME="ci-analysis-pod"
 OLLAMA_CONTAINER="ollama"
 AGENT_CONTAINER="ci-analysis-agent"
 OLLAMA_VOLUME="ollama-data"
@@ -57,10 +56,10 @@ check_podman() {
 cleanup_existing() {
     print_status "Cleaning up existing containers..."
     
-    # Stop and remove containers if they exist
-    if podman pod exists "$POD_NAME" 2>/dev/null; then
-        podman pod stop "$POD_NAME" 2>/dev/null || true
-        podman pod rm "$POD_NAME" 2>/dev/null || true
+    # Stop and remove pod if it exists (from previous versions)
+    if podman pod exists "ci-analysis-pod" 2>/dev/null; then
+        podman pod stop "ci-analysis-pod" 2>/dev/null || true
+        podman pod rm "ci-analysis-pod" 2>/dev/null || true
     fi
     
     # Remove individual containers if they exist
@@ -75,13 +74,6 @@ cleanup_existing() {
     fi
     
     print_success "Cleanup completed"
-}
-
-# Function to create pod
-create_pod() {
-    print_status "Creating pod '$POD_NAME'..."
-    podman pod create --name "$POD_NAME" -p "$AGENT_PORT:$AGENT_PORT" -p "$OLLAMA_PORT:$OLLAMA_PORT"
-    print_success "Pod '$POD_NAME' created"
 }
 
 # Function to create Ollama volume
@@ -100,7 +92,7 @@ start_ollama() {
     print_status "Starting Ollama container..."
     podman run -d \
         --name "$OLLAMA_CONTAINER" \
-        --pod "$POD_NAME" \
+        -p "$OLLAMA_PORT:$OLLAMA_PORT" \
         -v "$OLLAMA_VOLUME:/root/.ollama" \
         -e OLLAMA_HOST=0.0.0.0:$OLLAMA_PORT \
         ollama/ollama:latest
@@ -147,7 +139,6 @@ start_agent() {
         --network host \
         -e OLLAMA_API_BASE="http://localhost:$OLLAMA_PORT" \
         -e LOG_LEVEL=INFO \
-        -v "$(pwd):/app/workspace:Z" \
         ci-analysis-agent:latest
     
     print_success "CI Analysis Agent container started"
@@ -204,9 +195,9 @@ show_status() {
     echo "🎯 Quick Commands:"
     echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
     echo "  • Check Ollama models: podman exec $OLLAMA_CONTAINER ollama list"
-    echo "  • Stop all:            podman pod stop $POD_NAME"
-    echo "  • Start all:           podman pod start $POD_NAME"
-    echo "  • Remove all:          podman pod rm -f $POD_NAME"
+    echo "  • Stop containers:     podman stop $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Remove containers:   podman rm -f $OLLAMA_CONTAINER $AGENT_CONTAINER"
     echo ""
     echo "📖 For more information, see: CONTAINERIZED-DEPLOYMENT.md"
     echo "================================================================="
@@ -279,7 +270,6 @@ main() {
     fi
     
     # Start deployment
-    create_pod
     create_volume
     start_ollama
     
