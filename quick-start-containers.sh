@@ -256,6 +256,159 @@ verify_deployment() {
     done
 }
 
+# Function to stop containers
+stop_containers() {
+    print_status "Stopping CI Analysis Agent containers..."
+    
+    # Stop containers
+    if podman container exists "$AGENT_CONTAINER" 2>/dev/null; then
+        if podman ps | grep -q "$AGENT_CONTAINER"; then
+            print_status "Stopping CI Analysis Agent container..."
+            podman stop "$AGENT_CONTAINER"
+            print_success "CI Analysis Agent container stopped"
+        else
+            print_warning "CI Analysis Agent container is not running"
+        fi
+    else
+        print_warning "CI Analysis Agent container does not exist"
+    fi
+    
+    if podman container exists "$OLLAMA_CONTAINER" 2>/dev/null; then
+        if podman ps | grep -q "$OLLAMA_CONTAINER"; then
+            print_status "Stopping Ollama container..."
+            podman stop "$OLLAMA_CONTAINER"
+            print_success "Ollama container stopped"
+        else
+            print_warning "Ollama container is not running"
+        fi
+    else
+        print_warning "Ollama container does not exist"
+    fi
+    
+    echo ""
+    echo "================================================================="
+    echo "                 🛑 CONTAINERS STOPPED 🛑"
+    echo "================================================================="
+    echo ""
+    echo "📊 Container Status:"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER" || echo "  No containers found"
+    echo ""
+    echo "🎯 Quick Commands:"
+    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Clean up all:        $0 --clean-all"
+    echo "  • Remove volumes:      $0 --remove-volumes"
+    echo "  • Remove images:       $0 --remove-images"
+    echo "  • Check logs:          podman logs $AGENT_CONTAINER"
+    echo "  • Restart deployment: $0"
+    echo "================================================================="
+}
+
+# Function to clean up all resources
+clean_all() {
+    local remove_volumes="$1"
+    local remove_images="$2"
+    local remove_pods="$3"
+    
+    print_status "Performing comprehensive cleanup..."
+    
+    # Stop containers first
+    print_status "Stopping containers..."
+    podman stop "$OLLAMA_CONTAINER" "$AGENT_CONTAINER" 2>/dev/null || true
+    
+    # Remove containers
+    print_status "Removing containers..."
+    if podman container exists "$AGENT_CONTAINER" 2>/dev/null; then
+        podman rm -f "$AGENT_CONTAINER" 2>/dev/null || true
+        print_success "Removed CI Analysis Agent container"
+    fi
+    
+    if podman container exists "$OLLAMA_CONTAINER" 2>/dev/null; then
+        podman rm -f "$OLLAMA_CONTAINER" 2>/dev/null || true
+        print_success "Removed Ollama container"
+    fi
+    
+    # Remove pods if requested
+    if [ "$remove_pods" = true ]; then
+        print_status "Removing pods..."
+        if podman pod exists "ci-analysis-pod" 2>/dev/null; then
+            podman pod rm -f "ci-analysis-pod" 2>/dev/null || true
+            print_success "Removed ci-analysis-pod"
+        fi
+        
+        # Remove any other pods that might contain our containers
+        for pod in $(podman pod ls --format "{{.Name}}" 2>/dev/null | grep -E "ci-analysis|ollama" || true); do
+            if [ -n "$pod" ]; then
+                podman pod rm -f "$pod" 2>/dev/null || true
+                print_success "Removed pod: $pod"
+            fi
+        done
+    fi
+    
+    # Remove volumes if requested
+    if [ "$remove_volumes" = true ]; then
+        print_status "Removing volumes..."
+        if podman volume exists "$OLLAMA_VOLUME" 2>/dev/null; then
+            podman volume rm -f "$OLLAMA_VOLUME" 2>/dev/null || true
+            print_success "Removed volume: $OLLAMA_VOLUME"
+        fi
+        
+        # Remove any other volumes that might be related
+        for volume in $(podman volume ls --format "{{.Name}}" 2>/dev/null | grep -E "ollama|ci-analysis" || true); do
+            if [ -n "$volume" ]; then
+                podman volume rm -f "$volume" 2>/dev/null || true
+                print_success "Removed volume: $volume"
+            fi
+        done
+    fi
+    
+    # Remove images if requested
+    if [ "$remove_images" = true ]; then
+        print_status "Removing images..."
+        
+        # Remove CI Analysis Agent image
+        if podman image exists "ci-analysis-agent:latest" 2>/dev/null; then
+            podman rmi -f "ci-analysis-agent:latest" 2>/dev/null || true
+            print_success "Removed image: ci-analysis-agent:latest"
+        fi
+        
+        # Remove Ollama image
+        if podman image exists "ollama/ollama:latest" 2>/dev/null; then
+            podman rmi -f "ollama/ollama:latest" 2>/dev/null || true
+            print_success "Removed image: ollama/ollama:latest"
+        fi
+        
+        # Remove any other related images
+        for image in $(podman images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -E "ci-analysis|ollama" || true); do
+            if [ -n "$image" ] && [ "$image" != "ollama/ollama:latest" ] && [ "$image" != "ci-analysis-agent:latest" ]; then
+                podman rmi -f "$image" 2>/dev/null || true
+                print_success "Removed image: $image"
+            fi
+        done
+    fi
+    
+    echo ""
+    echo "================================================================="
+    echo "                 🧹 CLEANUP COMPLETED 🧹"
+    echo "================================================================="
+    echo ""
+    echo "📊 Remaining Resources:"
+    echo ""
+    echo "Containers:"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|ci-analysis" || echo "  No related containers found"
+    echo ""
+    echo "Volumes:"
+    podman volume ls --format "table {{.Name}}\t{{.Driver}}" | grep -E "ollama|ci-analysis" || echo "  No related volumes found"
+    echo ""
+    echo "Images:"
+    podman images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "ollama|ci-analysis" || echo "  No related images found"
+    echo ""
+    echo "🎯 Next Steps:"
+    echo "  • Fresh deployment:    $0"
+    echo "  • Check system:        podman system df"
+    echo "  • Prune unused:        podman system prune -a"
+    echo "================================================================="
+}
+
 # Function to show status
 show_status() {
     local gpu_type="$1"
@@ -291,9 +444,11 @@ show_status() {
     echo "🎯 Quick Commands:"
     echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
     echo "  • Check Ollama models: podman exec $OLLAMA_CONTAINER ollama list"
-    echo "  • Stop containers:     podman stop $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Stop containers:     $0 --stop"
     echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
-    echo "  • Remove containers:   podman rm -f $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Clean up all:        $0 --clean-all"
+    echo "  • Remove volumes:      $0 --remove-volumes"
+    echo "  • Remove images:       $0 --remove-images"
     
     # GPU-specific commands
     if [ "$gpu_type" = "nvidia" ]; then
@@ -314,21 +469,32 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -h, --help        Show this help message"
-    echo "  -c, --cleanup     Clean up existing containers before starting"
-    echo "  -m, --model MODEL Set the Ollama model to use (default: $OLLAMA_MODEL)"
-    echo "  -p, --port PORT   Set the agent port (default: $AGENT_PORT)"
-    echo "  --no-model        Skip pulling the Ollama model"
-    echo "  --gpu TYPE        GPU type to use: auto, nvidia, amd, none (default: $USE_GPU)"
-    echo "  --cpu-only        Force CPU-only mode, disable GPU detection"
+    echo "  -h, --help          Show this help message"
+    echo "  -s, --stop          Stop running containers"
+    echo "  -c, --cleanup       Clean up existing containers before starting"
+    echo "  -m, --model MODEL   Set the Ollama model to use (default: $OLLAMA_MODEL)"
+    echo "  -p, --port PORT     Set the agent port (default: $AGENT_PORT)"
+    echo "  --no-model          Skip pulling the Ollama model"
+    echo "  --gpu TYPE          GPU type to use: auto, nvidia, amd, none (default: $USE_GPU)"
+    echo "  --cpu-only          Force CPU-only mode, disable GPU detection"
+    echo ""
+    echo "Cleanup Options:"
+    echo "  --clean-all         Remove containers, volumes, images, and pods"
+    echo "  --remove-volumes    Remove persistent volumes (loses model data)"
+    echo "  --remove-images     Remove container images (forces re-download)"
+    echo "  --remove-pods       Remove pods (for pod-based deployments)"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Start with default settings (auto GPU detection)"
-    echo "  $0 -c                 # Clean up and start fresh"
-    echo "  $0 -m llama3:8b       # Use a different model"
-    echo "  $0 -p 3000            # Use port 3000 instead of 8000"
-    echo "  $0 --gpu nvidia       # Force NVIDIA GPU usage"
-    echo "  $0 --cpu-only         # Force CPU-only mode"
+    echo "  $0                       # Start with default settings (auto GPU detection)"
+    echo "  $0 -s                    # Stop running containers"
+    echo "  $0 -c                    # Clean up and start fresh"
+    echo "  $0 --clean-all           # Complete cleanup (containers, volumes, images, pods)"
+    echo "  $0 --remove-volumes      # Remove only volumes"
+    echo "  $0 --remove-images       # Remove only images"
+    echo "  $0 -m llama3:8b          # Use a different model"
+    echo "  $0 -p 3000               # Use port 3000 instead of 8000"
+    echo "  $0 --gpu nvidia          # Force NVIDIA GPU usage"
+    echo "  $0 --cpu-only            # Force CPU-only mode"
 }
 
 # Main function
@@ -336,6 +502,11 @@ main() {
     local cleanup=false
     local skip_model=false
     local gpu_type="auto"
+    local stop_containers_flag=false
+    local clean_all_flag=false
+    local remove_volumes_flag=false
+    local remove_images_flag=false
+    local remove_pods_flag=false
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -344,8 +515,31 @@ main() {
                 show_help
                 exit 0
                 ;;
+            -s|--stop)
+                stop_containers_flag=true
+                shift
+                ;;
             -c|--cleanup)
                 cleanup=true
+                shift
+                ;;
+            --clean-all)
+                clean_all_flag=true
+                remove_volumes_flag=true
+                remove_images_flag=true
+                remove_pods_flag=true
+                shift
+                ;;
+            --remove-volumes)
+                remove_volumes_flag=true
+                shift
+                ;;
+            --remove-images)
+                remove_images_flag=true
+                shift
+                ;;
+            --remove-pods)
+                remove_pods_flag=true
                 shift
                 ;;
             -m|--model)
@@ -375,6 +569,18 @@ main() {
                 ;;
         esac
     done
+    
+    # Handle stop command
+    if [ "$stop_containers_flag" = true ]; then
+        stop_containers
+        exit 0
+    fi
+    
+    # Handle cleanup commands
+    if [ "$clean_all_flag" = true ] || [ "$remove_volumes_flag" = true ] || [ "$remove_images_flag" = true ] || [ "$remove_pods_flag" = true ]; then
+        clean_all "$remove_volumes_flag" "$remove_images_flag" "$remove_pods_flag"
+        exit 0
+    fi
     
     print_status "Starting CI Analysis Agent containerized deployment..."
     
