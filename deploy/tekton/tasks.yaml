@@ -6,6 +6,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Create the target namespace and apply base resources
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: target-namespace
       description: Target namespace for deployment
@@ -44,6 +48,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Deploy Ollama with persistent storage
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: target-namespace
       description: Target namespace for deployment
@@ -90,6 +98,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Deploy CI Analysis Agent
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: image-url
       description: Container image URL
@@ -152,6 +164,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Load the required model into Ollama
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: target-namespace
       description: Target namespace for deployment
@@ -195,6 +211,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Create OpenShift route for external access
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: target-namespace
       description: Target namespace for deployment

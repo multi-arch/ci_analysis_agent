@@ -44,7 +44,7 @@ For the fastest setup experience:
 
 ```bash
 # Clone the repository
-git clone https://github.com/sherine-k/ci_analysis_agent.git
+git clone https://github.com/multi-arch/ci_analysis_agent.git
 cd ci_analysis_agent
 
 # Run the automated setup script
@@ -135,7 +135,7 @@ If you prefer manual control or want to understand each step:
 
 ```bash
 # Clone the repository
-git clone https://github.com/sherine-k/ci_analysis_agent.git
+git clone https://github.com/multi-arch/ci_analysis_agent.git
 cd ci_analysis_agent
 
 # Create a pod for our application (optional but recommended)

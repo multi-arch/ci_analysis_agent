@@ -5,6 +5,10 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   description: Build and deploy CI Analysis Agent with Ollama (Multi-user)
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   params:
     - name: git-url
       type: string
@@ -46,6 +50,7 @@ spec:
       taskRef:
         name: git-clone
         kind: ClusterTask
+        apiVersion: tekton.dev/v1beta1
       workspaces:
         - name: output
           workspace: shared-data
@@ -60,6 +65,7 @@ spec:
     - name: create-namespace
       taskRef:
         name: create-namespace
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - git-clone
       workspaces:
@@ -75,6 +81,7 @@ spec:
       taskRef:
         name: buildah
         kind: ClusterTask
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - create-namespace
       workspaces:
@@ -95,6 +102,7 @@ spec:
     - name: deploy-ollama
       taskRef:
         name: deploy-ollama
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - build-image
       workspaces:
@@ -109,6 +117,7 @@ spec:
     - name: deploy-ci-analysis-agent
       taskRef:
         name: deploy-ci-analysis-agent
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - deploy-ollama
       workspaces:
@@ -125,6 +134,7 @@ spec:
     - name: load-ollama-model
       taskRef:
         name: load-ollama-model
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - deploy-ci-analysis-agent
       workspaces:
@@ -139,6 +149,7 @@ spec:
     - name: create-route
       taskRef:
         name: create-route
+        apiVersion: tekton.dev/v1beta1
       runAfter:
         - load-ollama-model
       workspaces:

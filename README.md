@@ -26,7 +26,7 @@ For users who want to get started immediately:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/sherine-k/ci_analysis_agent.git
+git clone https://github.com/multi-arch/ci_analysis_agent.git
 cd ci_analysis_agent
 
 # 2. Setup Python environment
@@ -54,7 +54,7 @@ adk web
 
 ```bash
 # Clone the repository
-git clone https://github.com/sherine-k/ci_analysis_agent.git
+git clone https://github.com/multi-arch/ci_analysis_agent.git
 cd ci_analysis_agent
 
 # OR if you want to fork and contribute:
@@ -63,7 +63,7 @@ cd ci_analysis_agent
 # git clone git@github.com:<your-username>/ci_analysis_agent.git
 # cd ci_analysis_agent
 # 3. Add upstream remote:
-# git remote add upstream https://github.com/sherine-k/ci_analysis_agent.git
+# git remote add upstream https://github.com/multi-arch/ci_analysis_agent.git
 ```
 
 ### 2. Choose Your Installation Method
