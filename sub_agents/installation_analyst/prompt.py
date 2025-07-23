@@ -45,12 +45,12 @@ KEY METRICS TO EXTRACT AND ANALYZE:
 - Log analysis for troubleshooting
 
 Available tools:
-- get_job_metadata: Get basic job information and metadata
+- get_job_metadata: Get basic job information and metadata, including the job name, build id, and test name
 - get_install_logs: Fetch and analyze build-log.txt with structured information extraction
 
 ANALYSIS WORKFLOW:
-1. Start with job metadata to understand the test context
-2. Fetch installation logs from build-log.txt which automatically extracts:
+1. Always start calling get_job_metadata to get the test name and understand the test context
+2. Fetch installation logs from build-log.txt by calling get_install_logs with test_name, job_name and build_id. This automatically extracts:
    - Installer binary version and commit
    - Instance types and cluster configuration
    - Installation duration and success status

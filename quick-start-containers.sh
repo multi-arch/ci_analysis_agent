@@ -15,10 +15,13 @@ NC='\033[0m' # No Color
 # Configuration
 OLLAMA_CONTAINER="ollama"
 AGENT_CONTAINER="ci-analysis-agent"
+MCP_SERVER_CONTAINER="mcp-server"
+MCP_SERVER_IMAGE="localhost/mcp-server-template:latest"
 OLLAMA_VOLUME="ollama-data"
 OLLAMA_MODEL="qwen3:4b"
 AGENT_PORT="8000"
 OLLAMA_PORT="11434"
+MCP_SERVER_PORT="9000"
 USE_GPU="auto"  # auto, nvidia, amd, none
 
 # Function to print colored output
@@ -135,6 +138,11 @@ cleanup_existing() {
         podman rm "$AGENT_CONTAINER" 2>/dev/null || true
     fi
     
+    if podman container exists "$MCP_SERVER_CONTAINER" 2>/dev/null; then
+        podman stop "$MCP_SERVER_CONTAINER" 2>/dev/null || true
+        podman rm "$MCP_SERVER_CONTAINER" 2>/dev/null || true
+    fi
+    
     print_success "Cleanup completed"
 }
 
@@ -208,6 +216,60 @@ pull_model() {
     podman exec "$OLLAMA_CONTAINER" ollama list
 }
 
+# Function to build MCP server image
+build_mcp_server() {
+    print_status "Building MCP server container image..."
+    
+    # Check if _prow_mcp_server directory exists
+    if [ ! -d "_prow_mcp_server" ]; then
+        print_error "MCP server directory '_prow_mcp_server' not found"
+        print_error "Please ensure you're running this script from the ci_analysis_agent directory"
+        exit 1
+    fi
+    
+    # Build the MCP server image
+    podman build -t "$MCP_SERVER_IMAGE" _prow_mcp_server/
+    
+    print_success "MCP server image built successfully"
+    
+    # Verify image was created
+    if podman image exists "$MCP_SERVER_IMAGE" 2>/dev/null; then
+        print_success "MCP server image '$MCP_SERVER_IMAGE' is available"
+    else
+        print_error "Failed to build MCP server image"
+        exit 1
+    fi
+}
+
+# Function to start MCP server
+start_mcp_server() {
+    print_status "Starting MCP server container..."
+    podman run -d \
+        --name "$MCP_SERVER_CONTAINER" \
+        -p "$MCP_SERVER_PORT:$MCP_SERVER_PORT" \
+        -e MCP_TRANSPORT=http=stream \
+        -e MCP_PORT="$MCP_SERVER_PORT" \
+        "$MCP_SERVER_IMAGE"
+    
+    print_success "MCP server container started"
+    
+    # Wait for MCP server to be ready
+    print_status "Waiting for MCP server to be ready..."
+    sleep 5
+    
+    # Check if MCP server is responding
+    for i in {1..15}; do
+        if curl -s -f "http://localhost:$MCP_SERVER_PORT/" >/dev/null 2>&1; then
+            print_success "MCP server is ready"
+            break
+        fi
+        if [ $i -eq 15 ]; then
+            print_warning "MCP server may not be fully ready yet"
+        fi
+        sleep 2
+    done
+}
+
 # Function to build and start CI Analysis Agent
 start_agent() {
     print_status "Building CI Analysis Agent container..."
@@ -218,6 +280,7 @@ start_agent() {
         --name "$AGENT_CONTAINER" \
         --network host \
         -e OLLAMA_API_BASE="http://localhost:$OLLAMA_PORT" \
+        -e MCP_SERVER_URL="http://localhost:$MCP_SERVER_PORT" \
         -e LOG_LEVEL=INFO \
         ci-analysis-agent:latest
     
@@ -240,6 +303,13 @@ verify_deployment() {
         print_success "CI Analysis Agent container is running"
     else
         print_error "CI Analysis Agent container is not running"
+        return 1
+    fi
+    
+    if podman ps | grep -q "$MCP_SERVER_CONTAINER"; then
+        print_success "MCP server container is running"
+    else
+        print_error "MCP server container is not running"
         return 1
     fi
     
@@ -285,20 +355,33 @@ stop_containers() {
         print_warning "Ollama container does not exist"
     fi
     
+    if podman container exists "$MCP_SERVER_CONTAINER" 2>/dev/null; then
+        if podman ps | grep -q "$MCP_SERVER_CONTAINER"; then
+            print_status "Stopping MCP server container..."
+            podman stop "$MCP_SERVER_CONTAINER"
+            print_success "MCP server container stopped"
+        else
+            print_warning "MCP server container is not running"
+        fi
+    else
+        print_warning "MCP server container does not exist"
+    fi
+    
     echo ""
     echo "================================================================="
     echo "                 🛑 CONTAINERS STOPPED 🛑"
     echo "================================================================="
     echo ""
     echo "📊 Container Status:"
-    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER" || echo "  No containers found"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|$MCP_SERVER_CONTAINER" || echo "  No containers found"
     echo ""
     echo "🎯 Quick Commands:"
-    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $MCP_SERVER_CONTAINER $AGENT_CONTAINER"
     echo "  • Clean up all:        $0 --clean-all"
     echo "  • Remove volumes:      $0 --remove-volumes"
     echo "  • Remove images:       $0 --remove-images"
     echo "  • Check logs:          podman logs $AGENT_CONTAINER"
+    echo "  • Check MCP logs:      podman logs $MCP_SERVER_CONTAINER"
     echo "  • Restart deployment: $0"
     echo "================================================================="
 }
@@ -313,7 +396,7 @@ clean_all() {
     
     # Stop containers first
     print_status "Stopping containers..."
-    podman stop "$OLLAMA_CONTAINER" "$AGENT_CONTAINER" 2>/dev/null || true
+    podman stop "$OLLAMA_CONTAINER" "$AGENT_CONTAINER" "$MCP_SERVER_CONTAINER" 2>/dev/null || true
     
     # Remove containers
     print_status "Removing containers..."
@@ -325,6 +408,11 @@ clean_all() {
     if podman container exists "$OLLAMA_CONTAINER" 2>/dev/null; then
         podman rm -f "$OLLAMA_CONTAINER" 2>/dev/null || true
         print_success "Removed Ollama container"
+    fi
+    
+    if podman container exists "$MCP_SERVER_CONTAINER" 2>/dev/null; then
+        podman rm -f "$MCP_SERVER_CONTAINER" 2>/dev/null || true
+        print_success "Removed MCP server container"
     fi
     
     # Remove pods if requested
@@ -371,6 +459,12 @@ clean_all() {
             print_success "Removed image: ci-analysis-agent:latest"
         fi
         
+        # Remove MCP server image
+        if podman image exists "$MCP_SERVER_IMAGE" 2>/dev/null; then
+            podman rmi -f "$MCP_SERVER_IMAGE" 2>/dev/null || true
+            print_success "Removed image: $MCP_SERVER_IMAGE"
+        fi
+        
         # Remove Ollama image
         if podman image exists "ollama/ollama:latest" 2>/dev/null; then
             podman rmi -f "ollama/ollama:latest" 2>/dev/null || true
@@ -378,8 +472,8 @@ clean_all() {
         fi
         
         # Remove any other related images
-        for image in $(podman images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -E "ci-analysis|ollama" || true); do
-            if [ -n "$image" ] && [ "$image" != "ollama/ollama:latest" ] && [ "$image" != "ci-analysis-agent:latest" ]; then
+        for image in $(podman images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -E "ci-analysis|ollama|mcp-server" || true); do
+            if [ -n "$image" ] && [ "$image" != "ollama/ollama:latest" ] && [ "$image" != "ci-analysis-agent:latest" ] && [ "$image" != "$MCP_SERVER_IMAGE" ]; then
                 podman rmi -f "$image" 2>/dev/null || true
                 print_success "Removed image: $image"
             fi
@@ -394,13 +488,13 @@ clean_all() {
     echo "📊 Remaining Resources:"
     echo ""
     echo "Containers:"
-    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|ci-analysis" || echo "  No related containers found"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|$MCP_SERVER_CONTAINER|ci-analysis" || echo "  No related containers found"
     echo ""
     echo "Volumes:"
     podman volume ls --format "table {{.Name}}\t{{.Driver}}" | grep -E "ollama|ci-analysis" || echo "  No related volumes found"
     echo ""
     echo "Images:"
-    podman images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "ollama|ci-analysis" || echo "  No related images found"
+    podman images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "ollama|ci-analysis|mcp-server" || echo "  No related images found"
     echo ""
     echo "🎯 Next Steps:"
     echo "  • Fresh deployment:    $0"
@@ -420,6 +514,7 @@ show_status() {
     echo ""
     echo "🌐 Web Interface: http://localhost:$AGENT_PORT"
     echo "🤖 Ollama API:    http://localhost:$OLLAMA_PORT"
+    echo "🔧 MCP Server:    http://localhost:$MCP_SERVER_PORT"
     
     # Show GPU status
     case "$gpu_type" in
@@ -441,11 +536,22 @@ show_status() {
     echo "💾 Volume Status:"
     podman volume ls | grep "$OLLAMA_VOLUME" || echo "  No volumes found"
     echo ""
+    echo "🖼️ Images Status:"
+    echo "  CI Agent:     $(podman image exists ci-analysis-agent:latest 2>/dev/null && echo "✅ Built" || echo "❌ Missing")"
+    echo "  MCP Server:   $(podman image exists "$MCP_SERVER_IMAGE" 2>/dev/null && echo "✅ Built" || echo "❌ Missing")"
+    echo "  Ollama:       $(podman image exists ollama/ollama:latest 2>/dev/null && echo "✅ Available" || echo "❌ Missing")"
+    echo ""
+    echo "🔄 Service Status:"
+    echo "  CI Agent:     $(podman ps | grep -q "$AGENT_CONTAINER" && echo "🟢 Running" || echo "🔴 Stopped")"
+    echo "  MCP Server:   $(podman ps | grep -q "$MCP_SERVER_CONTAINER" && echo "🟢 Running" || echo "🔴 Stopped")"
+    echo "  Ollama:       $(podman ps | grep -q "$OLLAMA_CONTAINER" && echo "🟢 Running" || echo "🔴 Stopped")"
+    echo ""
     echo "🎯 Quick Commands:"
     echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
+    echo "  • View MCP logs:       podman logs -f $MCP_SERVER_CONTAINER"
     echo "  • Check Ollama models: podman exec $OLLAMA_CONTAINER ollama list"
     echo "  • Stop containers:     $0 --stop"
-    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $MCP_SERVER_CONTAINER $AGENT_CONTAINER"
     echo "  • Clean up all:        $0 --clean-all"
     echo "  • Remove volumes:      $0 --remove-volumes"
     echo "  • Remove images:       $0 --remove-images"
@@ -465,6 +571,11 @@ show_status() {
 # Function to show help
 show_help() {
     echo "CI Analysis Agent - Quick Start with Containers"
+    echo ""
+    echo "This script sets up the complete CI Analysis Agent stack including:"
+    echo "  • Ollama LLM server with model management"
+    echo "  • Prow MCP server for CI job analysis"
+    echo "  • CI Analysis Agent with web interface"
     echo ""
     echo "Usage: $0 [OPTIONS]"
     echo ""
@@ -614,6 +725,9 @@ main() {
     if [ "$skip_model" = false ]; then
         pull_model
     fi
+    
+    build_mcp_server
+    start_mcp_server
     
     start_agent
     verify_deployment
