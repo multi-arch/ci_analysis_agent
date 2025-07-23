@@ -10,7 +10,7 @@
         "localhost/mcp-server:latest"
       ],
       "env": {
-        "MCP_TRANSPORT": "stdio"
+        "MCP_TRANSPORT": "streamable-http"
       }
     }
   }
