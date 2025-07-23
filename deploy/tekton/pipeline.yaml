@@ -1,0 +1,155 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: ci-analysis-agent-pipeline
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  description: Build and deploy CI Analysis Agent with Ollama (Multi-user)
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
+  params:
+    - name: git-url
+      type: string
+      description: Git repository URL
+    - name: git-revision
+      type: string
+      description: Git revision to checkout
+      default: main
+    - name: target-namespace
+      type: string
+      description: Target namespace for deployment
+    - name: user-prefix
+      type: string
+      description: User prefix for resource naming
+      default: dev
+    - name: image-registry
+      type: string
+      description: Container image registry
+      default: quay.io
+    - name: image-namespace
+      type: string
+      description: Container image namespace
+      default: your-registry-namespace
+    - name: image-name
+      type: string
+      description: Container image name
+      default: ci-analysis-agent
+    - name: image-tag
+      type: string
+      description: Container image tag
+      default: latest
+  workspaces:
+    - name: shared-data
+      description: Shared workspace for source code and artifacts
+    - name: docker-credentials
+      description: Docker registry credentials
+  tasks:
+    - name: git-clone
+      taskRef:
+        resolver: cluster
+        params:
+        - name: kind
+          value: task
+        - name: name
+          value: git-clone
+        - name: namespace
+          value: openshift-pipelines
+      workspaces:
+        - name: output
+          workspace: shared-data
+      params:
+        - name: URL
+          value: $(params.git-url)
+        - name: REVISION
+          value: $(params.git-revision)
+        - name: DELETE_EXISTING
+          value: "true"
+
+    - name: build-image
+      taskRef:
+        resolver: cluster
+        params:
+        - name: kind
+          value: task
+        - name: name
+          value: buildah
+        - name: namespace
+          value: openshift-pipelines
+      runAfter:
+        - git-clone
+      workspaces:
+        - name: source
+          workspace: shared-data
+        - name: dockerconfig
+          workspace: docker-credentials
+      params:
+        - name: IMAGE
+          value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.user-prefix)-$(params.image-tag)
+        - name: DOCKERFILE
+          value: ./Dockerfile
+        - name: CONTEXT
+          value: .
+
+    - name: deploy-ollama
+      taskRef:
+        name: deploy-ollama
+        apiVersion: tekton.dev/v1beta1
+      runAfter:
+        - build-image
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: deploy-ci-analysis-agent
+      taskRef:
+        name: deploy-ci-analysis-agent
+        apiVersion: tekton.dev/v1beta1
+      runAfter:
+        - deploy-ollama
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: image-url
+          value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.user-prefix)-$(params.image-tag)
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: load-ollama-model
+      taskRef:
+        name: load-ollama-model
+        apiVersion: tekton.dev/v1beta1
+      runAfter:
+        - deploy-ci-analysis-agent
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix)
+
+    - name: create-route
+      taskRef:
+        name: create-route
+        apiVersion: tekton.dev/v1beta1
+      runAfter:
+        - load-ollama-model
+      workspaces:
+        - name: source
+          workspace: shared-data
+      params:
+        - name: target-namespace
+          value: $(params.target-namespace)
+        - name: user-prefix
+          value: $(params.user-prefix) 

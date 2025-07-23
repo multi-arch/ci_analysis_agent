@@ -1,0 +1,54 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: ci-analysis-agent-pipeline-run-
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
+  pipelineRef:
+    name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
+  params:
+    - name: git-url
+      value: https://github.com/multi-arch/ci_analysis_agent.git
+    - name: git-revision
+      value: main
+    - name: target-namespace
+      value: ci-analysis-dev
+    - name: user-prefix
+      value: dev
+    - name: image-registry
+      value: quay.io
+    - name: image-namespace
+      value: your-registry-namespace
+    - name: image-name
+      value: ci-analysis-agent
+    - name: image-tag
+      value: latest
+  workspaces:
+    - name: shared-data
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-registry-secret
+  timeout: 3600s
+
+---
+# Note: docker-registry-secret should be created using the deploy script with --create-secret flag
+# or manually using:
+# kubectl create secret docker-registry docker-registry-secret \
+#   --docker-server=quay.io \
+#   --docker-username=<your-username> \
+#   --docker-password=<your-password> \
+#   --docker-email=<your-email> \
+#   -n ci-analysis-<username> 

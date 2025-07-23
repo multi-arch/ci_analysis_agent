@@ -168,6 +168,13 @@ async def get_build_logs(job_name: str, build_id: str) -> dict:
 async def get_install_logs(job_name: str, build_id: str, test_name: str):
     """Get the install logs for a specific build ID and job name.
     
+    This function looks specifically in the installation directories:
+    <job_name>/<build_id>/artifacts/<test_name>/<ipi-install-*>/
+    
+    It tries multiple installation directory patterns:
+    - ipi-install-install
+    - ipi-install-install-stableinitial
+    
     Args:
         job_name: The name of the job
         build_id: The build ID for which to get install logs
@@ -176,35 +183,58 @@ async def get_install_logs(job_name: str, build_id: str, test_name: str):
     Returns:
         Dictionary containing the job metadata(job_name, build_id, test_name), installation logs or error information
     """
-    try:
-        # Construct the artifacts URL
-        artifacts_url = f"{GCS_URL}/{job_name}/{build_id}/artifacts"
-        
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{artifacts_url}/{test_name}/ipi-install-install/finished.json")
-            response.raise_for_status()
-            json_resp = response.json()
-            result = json_resp["result"]
-            passed = json_resp["passed"]
+    # List of possible installation directory patterns
+    install_dirs = [
+        "ipi-install-install",
+        "ipi-install-install-stableinitial"
+    ]
+    
+    # Construct the base artifacts URL
+    artifacts_url = f"{GCS_URL}/{job_name}/{build_id}/artifacts"
+    
+    # Try each installation directory pattern
+    for install_dir in install_dirs:
+        try:
+            async with httpx.AsyncClient() as client:
+                # Try to get finished.json from this installation directory
+                finished_url = f"{artifacts_url}/{test_name}/{install_dir}/finished.json"
+                response = await client.get(finished_url)
+                response.raise_for_status()
+                json_resp = response.json()
+                result = json_resp["result"]
+                passed = json_resp["passed"]
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{artifacts_url}/{test_name}/ipi-install-install/build-log.txt")
-            response.raise_for_status()
-            logs = response.text
-            return {
-                "build_id": build_id,
-                "job_name": job_name,
-                "test_name": test_name,
-                "passed": passed,
-                "result": result,
-                "logs": logs,
-                "artifacts_url": artifacts_url
-            }
-    except Exception as e:
-        return {
-            "error": f"Failed to fetch logs: {str(e)}",
-            "artifacts_url": artifacts_url if 'artifacts_url' in locals() else None
-        }
+            async with httpx.AsyncClient() as client:
+                # Get build-log.txt from the same installation directory
+                log_url = f"{artifacts_url}/{test_name}/{install_dir}/build-log.txt"
+                response = await client.get(log_url)
+                response.raise_for_status()
+                logs = response.text
+                
+                return {
+                    "build_id": build_id,
+                    "job_name": job_name,
+                    "test_name": test_name,
+                    "install_dir": install_dir,
+                    "passed": passed,
+                    "result": result,
+                    "logs": logs,
+                    "artifacts_url": artifacts_url,
+                    "log_url": log_url
+                }
+        except Exception as e:
+            # Continue to try the next directory pattern
+            continue
+    
+    # If none of the patterns worked, return an error
+    return {
+        "error": f"Failed to fetch install logs from any installation directory. Tried: {', '.join(install_dirs)}",
+        "build_id": build_id,
+        "job_name": job_name,
+        "test_name": test_name,
+        "artifacts_url": artifacts_url,
+        "tried_directories": [f"{artifacts_url}/{test_name}/{d}" for d in install_dirs]
+    }
 
 
 

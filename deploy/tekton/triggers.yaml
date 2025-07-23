@@ -1,0 +1,141 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: ci-analysis-agent-listener
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  serviceAccountName: pipeline-service-account
+  triggers:
+    - name: github-push-trigger
+      interceptors:
+        - ref:
+            name: github
+          params:
+            - name: secretRef
+              value:
+                secretName: github-webhook-secret
+                secretKey: secretToken
+            - name: eventTypes
+              value: ["push"]
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: "body.ref == 'refs/heads/main' || body.ref.startsWith('refs/heads/feature/') || body.ref.startsWith('refs/heads/dev/')"
+      bindings:
+        - ref: ci-analysis-agent-binding
+      template:
+        ref: ci-analysis-agent-template
+
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: ci-analysis-agent-binding
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  params:
+    - name: git-url
+      value: $(body.repository.clone_url)
+    - name: git-revision
+      value: $(body.after)
+    - name: image-tag
+      value: $(body.after)
+    - name: branch-name
+      value: $(body.ref)
+    - name: repository-name
+      value: $(body.repository.name)
+    - name: repository-owner
+      value: $(body.repository.owner.login)
+
+---
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: ci-analysis-agent-template
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  params:
+    - name: git-url
+      description: Git repository URL
+    - name: git-revision
+      description: Git revision
+    - name: image-tag
+      description: Container image tag
+    - name: branch-name
+      description: Git branch name
+    - name: repository-name
+      description: Repository name
+    - name: repository-owner
+      description: Repository owner
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1beta1
+      kind: PipelineRun
+      metadata:
+        generateName: ci-analysis-agent-pipeline-run-
+        namespace: NAMESPACE_PLACEHOLDER
+      spec:
+        serviceAccountName: pipeline-service-account
+        podTemplate:
+          nodeSelector:
+            kubernetes.io/arch: amd64
+            kubernetes.io/os: linux
+        pipelineRef:
+          name: ci-analysis-agent-pipeline
+          apiVersion: tekton.dev/v1beta1
+        params:
+          - name: git-url
+            value: $(tt.params.git-url)
+          - name: git-revision
+            value: $(tt.params.git-revision)
+          - name: target-namespace
+            value: ci-analysis-$(tt.params.repository-owner)
+          - name: user-prefix
+            value: $(tt.params.repository-owner)
+          - name: image-registry
+            value: quay.io
+          - name: image-namespace
+            value: your-registry-namespace
+          - name: image-name
+            value: ci-analysis-agent
+          - name: image-tag
+            value: $(tt.params.image-tag)
+        workspaces:
+          - name: shared-data
+            volumeClaimTemplate:
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+          - name: docker-credentials
+            secret:
+              secretName: docker-registry-secret
+        timeout: 3600s
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-webhook-secret
+  namespace: NAMESPACE_PLACEHOLDER
+type: Opaque
+stringData:
+  secretToken: "your-github-webhook-secret-token"
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ci-analysis-agent-webhook
+  namespace: NAMESPACE_PLACEHOLDER
+spec:
+  to:
+    kind: Service
+    name: el-ci-analysis-agent-listener
+  port:
+    targetPort: http-listener
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect 
