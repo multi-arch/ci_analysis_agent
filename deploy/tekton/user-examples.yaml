@@ -8,8 +8,13 @@ metadata:
   namespace: ci-analysis-alice
 spec:
   serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   pipelineRef:
     name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
   params:
     - name: git-url
       value: https://github.com/alice/ci_analysis_agent.git
@@ -49,8 +54,13 @@ metadata:
   namespace: ci-analysis-bob
 spec:
   serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   pipelineRef:
     name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
   params:
     - name: git-url
       value: https://github.com/bob/ci_analysis_agent.git
@@ -90,11 +100,16 @@ metadata:
   namespace: ci-analysis-qa
 spec:
   serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   pipelineRef:
     name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
   params:
     - name: git-url
-      value: https://github.com/sherine-k/ci_analysis_agent.git
+      value: https://github.com/multi-arch/ci_analysis_agent.git
     - name: git-revision
       value: main
     - name: target-namespace
@@ -132,7 +147,7 @@ spec:
 set -e
 
 USERNAME=${1:-dev}
-GIT_URL=${2:-https://github.com/sherine-k/ci_analysis_agent.git}
+GIT_URL=${2:-https://github.com/multi-arch/ci_analysis_agent.git}
 GIT_REVISION=${3:-main}
 IMAGE_NAMESPACE=${4:-$USERNAME}
 
@@ -149,8 +164,13 @@ metadata:
   namespace: ci-analysis-${USERNAME}
 spec:
   serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   pipelineRef:
     name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
   params:
     - name: git-url
       value: $GIT_URL

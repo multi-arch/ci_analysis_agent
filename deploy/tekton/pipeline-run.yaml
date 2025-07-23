@@ -5,11 +5,16 @@ metadata:
   namespace: NAMESPACE_PLACEHOLDER
 spec:
   serviceAccountName: pipeline-service-account
+  podTemplate:
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      kubernetes.io/os: linux
   pipelineRef:
     name: ci-analysis-agent-pipeline
+    apiVersion: tekton.dev/v1beta1
   params:
     - name: git-url
-      value: https://github.com/sherine-k/ci_analysis_agent.git
+      value: https://github.com/multi-arch/ci_analysis_agent.git
     - name: git-revision
       value: main
     - name: target-namespace
@@ -39,19 +44,8 @@ spec:
   timeout: 3600s
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: docker-registry-secret
-  namespace: NAMESPACE_PLACEHOLDER
-type: kubernetes.io/dockerconfigjson
-data:
-  .dockerconfigjson: # Base64 encoded docker config
-    # Example: eyJhdXRocyI6eyJxdWF5LmlvIjp7ImF1dGgiOiJiV0Y0YUdWdmNYODZjR0Z6YzNkdmNtUT0ifX19
-    # This should be replaced with actual registry credentials
-    
----
-# Example of how to create the docker registry secret
+# Note: docker-registry-secret should be created using the deploy script with --create-secret flag
+# or manually using:
 # kubectl create secret docker-registry docker-registry-secret \
 #   --docker-server=quay.io \
 #   --docker-username=<your-username> \

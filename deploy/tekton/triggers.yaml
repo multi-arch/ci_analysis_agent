@@ -76,8 +76,13 @@ spec:
         namespace: NAMESPACE_PLACEHOLDER
       spec:
         serviceAccountName: pipeline-service-account
+        podTemplate:
+          nodeSelector:
+            kubernetes.io/arch: amd64
+            kubernetes.io/os: linux
         pipelineRef:
           name: ci-analysis-agent-pipeline
+          apiVersion: tekton.dev/v1beta1
         params:
           - name: git-url
             value: $(tt.params.git-url)
