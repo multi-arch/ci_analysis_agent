@@ -451,6 +451,23 @@ deploy_resources_only() {
     deploy_with_namespace "tasks.yaml" "📝 Deploying Tasks..."
     deploy_with_namespace "pipeline.yaml" "🔄 Deploying Pipeline..."
     deploy_with_namespace "triggers.yaml" "⚡ Deploying Triggers..."
+    
+    # Create the application configuration configmap
+    echo -e "${GREEN}⚙️  Creating application configuration...${NC}"
+    oc create configmap ${USERNAME}-ci-analysis-config \
+        --from-literal=OLLAMA_API_BASE="http://${USERNAME}-ollama-service:11434" \
+        --from-literal=GOOGLE_GENAI_USE_VERTEXAI="FALSE" \
+        --from-literal=PYTHONPATH="/app" \
+        -n $NAMESPACE \
+        --dry-run=client -o yaml | oc apply -f -
+        
+    # Grant SCC permissions for container builds (persistent)
+    echo -e "${GREEN}🔐 Configuring Security Context Constraints for buildah...${NC}"
+    if ! oc adm policy add-scc-to-user pipelines-scc system:serviceaccount:${NAMESPACE}:pipeline-service-account &> /dev/null; then
+        echo -e "${YELLOW}⚠️  SCC policy may already be applied or cluster permissions insufficient${NC}"
+    else
+        echo -e "${GREEN}✅ SCC permissions configured successfully${NC}"
+    fi
 
     # Note: pipeline-run.yaml is a template file, not deployed directly
     echo -e "${GREEN}📄 Pipeline Run template available for use${NC}"
