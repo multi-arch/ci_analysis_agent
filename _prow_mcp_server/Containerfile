@@ -9,4 +9,6 @@ COPY mcp_server.py ./
 COPY drain.py ./
 COPY drain3.ini ./
 
+EXPOSE 9000
+
 CMD ["python", "mcp_server.py"]
