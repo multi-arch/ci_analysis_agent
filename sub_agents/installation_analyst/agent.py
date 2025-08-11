@@ -169,28 +169,21 @@ async def get_job_metadata_async(job_name: str, build_id: str) -> Dict[str, Any]
     except Exception as e:
         return {"error": f"Failed to fetch job info: {str(e)}"}
 
-async def get_install_logs_async(job_name: str, build_id: str) -> str:
+async def get_install_logs_async(job_name: str, build_id: str, test_name: str) -> str:
     """Get installation logs from build-log.txt in installation directories."""
-    # Extract job short name from full job name
-    job_parts = job_name.split('-')
-    if len(job_parts) >= 8:
-        job_short_name = '-'.join(job_parts[7:])  # Everything after the 7th part
-    else:
-        job_short_name = job_name.split('-')[-1]  # Fallback to last part
-    
-    # Try both possible installation directory patterns
+    # List of possible installation directory patterns
     install_dirs = [
-        f"artifacts/{job_short_name}/ipi-install-install",
-        f"artifacts/{job_short_name}/ipi-install-install-stableinitial"
+        "ipi-install-install",
+        "ipi-install-install-stableinitial"
     ]
-    
     base_url = f"{GCS_URL}/{job_name}/{build_id}"
-    
+    # Construct the base artifacts URL
+    artifacts_url = f"{base_url}/artifacts"
     async with httpx.AsyncClient() as client:
         for install_dir in install_dirs:
             try:
                 # Get the build-log.txt from this installation directory
-                log_url = f"{base_url}/{install_dir}/build-log.txt"
+                log_url = f"{artifacts_url}/{test_name}/{install_dir}/build-log.txt"
                 
                 response = await client.get(log_url)
                 response.raise_for_status()
@@ -281,7 +274,7 @@ Could not find installation logs for job: {job_name}
 Build ID: {build_id}
 
 🔍 DEBUGGING INFO:
-- Job short name extracted: {job_short_name}
+- test_name: {test_name}
 - Base URL: {base_url}
 - Tried directories: {', '.join(install_dirs)}
 
@@ -318,9 +311,9 @@ def get_job_metadata_tool(job_name: str, build_id: str):
     """Get metadata and status for a specific Prow job name and build ID."""
     return run_async_in_thread(get_job_metadata_async(job_name, build_id))
 
-def get_install_logs_tool(job_name: str, build_id: str):
+def get_install_logs_tool(job_name: str, build_id: str, test_name: str):
     """Get installation logs from build-log.txt in installation directories with detailed analysis."""
-    return run_async_in_thread(get_install_logs_async(job_name, build_id))
+    return run_async_in_thread(get_install_logs_async(job_name, build_id, test_name))
 
 installation_analyst_agent = Agent(
     model=MODEL,

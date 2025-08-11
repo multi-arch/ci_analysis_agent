@@ -135,17 +135,15 @@ def generate_source_code_links(test_name: str, commit_hash: Optional[str] = None
     
     return links
 
-async def get_e2e_test_logs_async(job_name: str, build_id: str) -> str:
+async def get_e2e_test_logs_async(job_name: str, build_id: str, test_name: str) -> str:
     """Get e2e test logs from Prow."""
-    # Extract job short name from full job name
-    job_parts = job_name.split('-')
-    if len(job_parts) >= 8:
-        job_short_name = '-'.join(job_parts[7:])  # Everything after the 7th part
-    else:
-        job_short_name = job_name.split('-')[-1]  # Fallback to last part
+   
     
     # E2E test logs are typically in openshift-e2e-test directory
-    e2e_test_path = f"artifacts/{job_short_name}/openshift-e2e-test/build-log.txt"
+    if "sno" in test_name:
+        e2e_test_path = f"artifacts/{test_name}/single-node-e2e-test/build-log.txt"
+    else:
+        e2e_test_path = f"artifacts/{test_name}/openshift-e2e-test/build-log.txt"
     
     base_url = f"{GCS_URL}/{job_name}/{build_id}"
     e2e_test_url = f"{base_url}/{e2e_test_path}"
@@ -165,7 +163,7 @@ Could not find e2e test logs for job: {job_name}
 Build ID: {build_id}
 
 🔍 DEBUGGING INFO:
-- Job short name extracted: {job_short_name}
+- test_name: {test_name}
 - Base URL: {base_url}
 - Tried path: {e2e_test_path}
 
@@ -244,7 +242,7 @@ Could not find e2e test logs for job: {job_name}
 Build ID: {build_id}
 
 🔍 DEBUGGING INFO:
-- Job short name extracted: {job_short_name}
+- test_name: {test_name}
 - Base URL: {base_url}
 - Tried path: {e2e_test_path}
 - HTTP Error: {str(e)}
@@ -265,17 +263,14 @@ Build ID: {build_id}
         except Exception as e:
             return f"❌ E2E TEST ANALYSIS ERROR: {str(e)}"
 
-async def get_junit_results_async(job_name: str, build_id: str) -> str:
+async def get_junit_results_async(job_name: str, build_id: str, test_name: str) -> str:
     """Get JUnit test results from Prow."""
-    # Extract job short name from full job name
-    job_parts = job_name.split('-')
-    if len(job_parts) >= 8:
-        job_short_name = '-'.join(job_parts[7:])  # Everything after the 7th part
+      # E2E test logs are typically in openshift-e2e-test directory
+    if "sno" in test_name:
+        e2e_test_path = f"artifacts/{test_name}/single-node-e2e-test"
     else:
-        job_short_name = job_name.split('-')[-1]  # Fallback to last part
-    
-    # JUnit results are typically in junit directory
-    junit_path = f"artifacts/{job_short_name}/openshift-e2e-test/junit_e2e_*.xml"
+        e2e_test_path = f"artifacts/{test_name}/openshift-e2e-test"
+
     
     base_url = f"{GCS_URL}/{job_name}/{build_id}"
     
@@ -283,9 +278,11 @@ async def get_junit_results_async(job_name: str, build_id: str) -> str:
         try:
             # Try common JUnit file patterns
             junit_patterns = [
-                f"artifacts/{job_short_name}/openshift-e2e-test/junit_e2e.xml",
-                f"artifacts/{job_short_name}/openshift-e2e-test/junit_e2e_20*.xml",
-                f"artifacts/{job_short_name}/openshift-e2e-test/artifacts/junit_e2e.xml"
+                f"{e2e_test_path}/junit_e2e.xml",
+                f"{e2e_test_path}/junit_e2e_20*.xml",
+                f"{e2e_test_path}/artifacts/junit_e2e.xml",
+                f"{e2e_test_path}/artifacts/junit/junit_e2e.xml",
+                f"{e2e_test_path}/artifacts/junit/junit_e2e_20*.xml"
             ]
             
             for pattern in junit_patterns:
@@ -321,13 +318,13 @@ def get_job_metadata_tool(job_name: str, build_id: str):
     """Get metadata and status for a specific Prow job name and build ID."""
     return run_async_in_thread(get_job_metadata_async(job_name, build_id))
 
-def get_e2e_test_logs_tool(job_name: str, build_id: str):
+def get_e2e_test_logs_tool(job_name: str, build_id: str, test_name: str):
     """Get e2e test logs from the openshift-e2e-test directory with commit info and source code links."""
-    return run_async_in_thread(get_e2e_test_logs_async(job_name, build_id))
+    return run_async_in_thread(get_e2e_test_logs_async(job_name, build_id, test_name))
 
-def get_junit_results_tool(job_name: str, build_id: str):
+def get_junit_results_tool(job_name: str, build_id: str, test_name: str):
     """Get JUnit test results from the e2e test artifacts."""
-    return run_async_in_thread(get_junit_results_async(job_name, build_id))
+    return run_async_in_thread(get_junit_results_async(job_name, build_id, test_name))
 
 e2e_test_analyst_agent = Agent(
     model=MODEL,
