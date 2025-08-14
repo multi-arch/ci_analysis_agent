@@ -20,6 +20,7 @@ OLLAMA_MODEL="qwen3:4b"
 AGENT_PORT="8000"
 OLLAMA_PORT="11434"
 USE_GPU="auto"  # auto, nvidia, amd, none
+USE_REMOTE_VLLM=false  # Use remote vLLM instead of local Ollama
 
 # Function to print colored output
 print_status() {
@@ -51,6 +52,46 @@ check_podman() {
         exit 1
     fi
     print_success "Podman is available"
+}
+
+# Function to validate remote vLLM environment variables
+validate_vllm_env() {
+    if [ "$USE_REMOTE_VLLM" = true ]; then
+        print_status "Validating remote vLLM environment variables..."
+        
+        local missing_vars=""
+        
+        if [ -z "$HOSTED_VLLM_API_BASE" ]; then
+            missing_vars="$missing_vars HOSTED_VLLM_API_BASE"
+        fi
+        
+        if [ -z "$HOSTED_VLLM_API_KEY" ]; then
+            missing_vars="$missing_vars HOSTED_VLLM_API_KEY"
+        fi
+        
+        if [ -z "$HOSTED_VLLM_MODEL_NAME" ]; then
+            missing_vars="$missing_vars HOSTED_VLLM_MODEL_NAME"
+        fi
+        if [ -n "$missing_vars" ]; then
+            print_error "Missing required environment variables for remote vLLM:$missing_vars"
+            echo ""
+            echo "Please set the following environment variables before running this script:"
+            echo "  export HOSTED_VLLM_API_BASE=\"your_vllm_api_base_url\""
+            echo "  export HOSTED_VLLM_API_KEY=\"your_vllm_api_key\""
+            echo "  export HOSTED_VLLM_MODEL_NAME=\"your_vllm_model\""
+            echo ""
+            echo "Example:"
+            echo "  export HOSTED_VLLM_API_BASE=\"https://your-vllm-endpoint.com/v1\""
+            echo "  export HOSTED_VLLM_API_KEY=\"your-api-key-here\""
+            echo "  export HOSTED_VLLM_MODEL_NAME=\"claudette-sheep\""
+            exit 1
+        fi
+        
+        print_success "Remote vLLM environment variables are set"
+        print_status "API Base: $HOSTED_VLLM_API_BASE"
+        print_status "API Key: ${HOSTED_VLLM_API_KEY:0:8}..." # Show only first 8 characters for security
+        print_status "Model Name: $HOSTED_VLLM_MODEL_NAME"
+    fi
 }
 
 # Function to detect GPU capabilities
@@ -214,11 +255,26 @@ start_agent() {
     podman build -t ci-analysis-agent:latest .
     
     print_status "Starting CI Analysis Agent container..."
+    
+    # Prepare environment variables
+    local env_args="-e LOG_LEVEL=INFO"
+    
+    if [ "$USE_REMOTE_VLLM" = true ]; then
+        env_args="$env_args -e HOSTED_VLLM_API_BASE=$HOSTED_VLLM_API_BASE"
+        env_args="$env_args -e HOSTED_VLLM_API_KEY=$HOSTED_VLLM_API_KEY"
+        env_args="$env_args -e MODEL=$HOSTED_VLLM_MODEL_NAME"
+        print_status "Using remote vLLM endpoint: $HOSTED_VLLM_API_BASE"
+    else
+        # Use default values for local Ollama setup
+        env_args="$env_args -e MODEL=ollama_chat/$OLLAMA_MODEL"
+        env_args="$env_args -e OLLAMA_API_BASE=http://localhost:$OLLAMA_PORT"
+        print_status "Using local Ollama setup with default vLLM fallback"
+    fi
+    
     podman run -d \
         --name "$AGENT_CONTAINER" \
         --network host \
-        -e OLLAMA_API_BASE="http://localhost:$OLLAMA_PORT" \
-        -e LOG_LEVEL=INFO \
+        $env_args \
         ci-analysis-agent:latest
     
     print_success "CI Analysis Agent container started"
@@ -229,11 +285,15 @@ verify_deployment() {
     print_status "Verifying deployment..."
     
     # Check if containers are running
-    if podman ps | grep -q "$OLLAMA_CONTAINER"; then
-        print_success "Ollama container is running"
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        if podman ps | grep -q "$OLLAMA_CONTAINER"; then
+            print_success "Ollama container is running"
+        else
+            print_error "Ollama container is not running"
+            return 1
+        fi
     else
-        print_error "Ollama container is not running"
-        return 1
+        print_status "Skipping Ollama container check (using remote vLLM)"
     fi
     
     if podman ps | grep -q "$AGENT_CONTAINER"; then
@@ -419,42 +479,59 @@ show_status() {
     echo "================================================================="
     echo ""
     echo "🌐 Web Interface: http://localhost:$AGENT_PORT"
-    echo "🤖 Ollama API:    http://localhost:$OLLAMA_PORT"
     
-    # Show GPU status
-    case "$gpu_type" in
-        "nvidia")
-            echo "🎮 GPU Mode:      NVIDIA GPU acceleration enabled"
-            ;;
-        "amd")
-            echo "🎮 GPU Mode:      AMD GPU acceleration enabled"
-            ;;
-        "none")
-            echo "🎮 GPU Mode:      CPU-only mode"
-            ;;
-    esac
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        echo "🤖 Ollama API:    http://localhost:$OLLAMA_PORT"
+        
+        # Show GPU status
+        case "$gpu_type" in
+            "nvidia")
+                echo "🎮 GPU Mode:      NVIDIA GPU acceleration enabled"
+                ;;
+            "amd")
+                echo "🎮 GPU Mode:      AMD GPU acceleration enabled"
+                ;;
+            "none")
+                echo "🎮 GPU Mode:      CPU-only mode"
+                ;;
+        esac
+    else
+        echo "🤖 Remote vLLM:   $HOSTED_VLLM_API_BASE"
+        echo "🎮 GPU Mode:      Remote vLLM endpoint"
+    fi
     
     echo ""
     echo "📊 Container Status:"
     podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     echo ""
-    echo "💾 Volume Status:"
-    podman volume ls | grep "$OLLAMA_VOLUME" || echo "  No volumes found"
-    echo ""
-    echo "🎯 Quick Commands:"
-    echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
-    echo "  • Check Ollama models: podman exec $OLLAMA_CONTAINER ollama list"
-    echo "  • Stop containers:     $0 --stop"
-    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
-    echo "  • Clean up all:        $0 --clean-all"
-    echo "  • Remove volumes:      $0 --remove-volumes"
-    echo "  • Remove images:       $0 --remove-images"
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        echo "💾 Volume Status:"
+        podman volume ls | grep "$OLLAMA_VOLUME" || echo "  No volumes found"
+        echo ""
+        echo "🎯 Quick Commands:"
+        echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
+        echo "  • Check Ollama models: podman exec $OLLAMA_CONTAINER ollama list"
+        echo "  • Stop containers:     $0 --stop"
+        echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+        echo "  • Clean up all:        $0 --clean-all"
+        echo "  • Remove volumes:      $0 --remove-volumes"
+        echo "  • Remove images:       $0 --remove-images"
+    else
+        echo "🎯 Quick Commands:"
+        echo "  • View logs:           podman logs -f $AGENT_CONTAINER"
+        echo "  • Stop container:      $0 --stop"
+        echo "  • Start container:     podman start $AGENT_CONTAINER"
+        echo "  • Clean up all:        $0 --clean-all"
+        echo "  • Remove images:       $0 --remove-images"
+    fi
     
-    # GPU-specific commands
-    if [ "$gpu_type" = "nvidia" ]; then
-        echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER nvidia-smi"
-    elif [ "$gpu_type" = "amd" ]; then
-        echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER rocm-smi"
+    # GPU-specific commands (only for local Ollama)
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        if [ "$gpu_type" = "nvidia" ]; then
+            echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER nvidia-smi"
+        elif [ "$gpu_type" = "amd" ]; then
+            echo "  • Check GPU usage:     podman exec $OLLAMA_CONTAINER rocm-smi"
+        fi
     fi
     
     echo ""
@@ -477,6 +554,7 @@ show_help() {
     echo "  --no-model          Skip pulling the Ollama model"
     echo "  --gpu TYPE          GPU type to use: auto, nvidia, amd, none (default: $USE_GPU)"
     echo "  --cpu-only          Force CPU-only mode, disable GPU detection"
+    echo "  --remote-vllm       Use remote vLLM endpoint instead of local Ollama"
     echo ""
     echo "Cleanup Options:"
     echo "  --clean-all         Remove containers, volumes, images, and pods"
@@ -495,6 +573,13 @@ show_help() {
     echo "  $0 -p 3000               # Use port 3000 instead of 8000"
     echo "  $0 --gpu nvidia          # Force NVIDIA GPU usage"
     echo "  $0 --cpu-only            # Force CPU-only mode"
+    echo "  $0 --remote-vllm         # Use remote vLLM (requires env vars)"
+    echo ""
+    echo "Remote vLLM Usage:"
+    echo "  Set environment variables before using --remote-vllm:"
+    echo "    export HOSTED_VLLM_API_BASE=\"https://your-vllm-endpoint.com/v1\""
+    echo "    export HOSTED_VLLM_API_KEY=\"your-api-key-here\""
+    echo "    $0 --remote-vllm       # Start without local Ollama"
 }
 
 # Main function
@@ -562,6 +647,10 @@ main() {
                 USE_GPU="none"
                 shift
                 ;;
+            --remote-vllm)
+                USE_REMOTE_VLLM=true
+                shift
+                ;;
             *)
                 print_error "Unknown option: $1"
                 show_help
@@ -587,19 +676,27 @@ main() {
     # Check prerequisites
     check_podman
     
-    # Determine GPU type
-    if [ "$USE_GPU" = "auto" ]; then
-        gpu_type=$(detect_gpu)
-    else
-        gpu_type="$USE_GPU"
-    fi
+    # Validate remote vLLM environment variables if needed
+    validate_vllm_env
     
-    # Validate GPU runtime if needed
-    if [ "$gpu_type" != "none" ]; then
-        if ! check_gpu_runtime "$gpu_type"; then
-            print_warning "GPU runtime check failed, falling back to CPU-only mode"
-            gpu_type="none"
+    # Determine GPU type (only needed for local Ollama)
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        if [ "$USE_GPU" = "auto" ]; then
+            gpu_type=$(detect_gpu)
+        else
+            gpu_type="$USE_GPU"
         fi
+        
+        # Validate GPU runtime if needed
+        if [ "$gpu_type" != "none" ]; then
+            if ! check_gpu_runtime "$gpu_type"; then
+                print_warning "GPU runtime check failed, falling back to CPU-only mode"
+                gpu_type="none"
+            fi
+        fi
+    else
+        gpu_type="none"  # GPU not relevant for remote vLLM
+        print_status "Using remote vLLM - skipping GPU detection"
     fi
     
     # Cleanup if requested
@@ -608,11 +705,15 @@ main() {
     fi
     
     # Start deployment
-    create_volume
-    start_ollama "$gpu_type"
-    
-    if [ "$skip_model" = false ]; then
-        pull_model
+    if [ "$USE_REMOTE_VLLM" = false ]; then
+        create_volume
+        start_ollama "$gpu_type"
+        
+        if [ "$skip_model" = false ]; then
+            pull_model
+        fi
+    else
+        print_status "Skipping Ollama setup (using remote vLLM)"
     fi
     
     start_agent
