@@ -1,10 +1,12 @@
 from google.adk import Agent
 from . import prompt
+from google.adk.models.lite_llm import LiteLlm
+
 from .must_gather import get_must_gather, list_directory, read_drained_file, get_file_info, search_files
 MODEL = "ollama/qwen3:4b"
 
 mustgather_analyst_agent = Agent(
-    model=MODEL,
+    model=LiteLlm(model=MODEL),
     name="mustgather_analyst_agent",
     instruction=prompt.MUST_GATHER_SPECIALIST_PROMPT,
     output_key="must_gather_analysis_output",
