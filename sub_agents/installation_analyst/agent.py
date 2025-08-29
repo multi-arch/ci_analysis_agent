@@ -9,11 +9,12 @@ import httpx
 import threading
 import concurrent.futures
 import re
+import os
 from typing import Dict, Any, Optional
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
-MODEL = LiteLlm(model="ollama_chat/qwen3:4b")
+MODEL = os.environ.get("MODEL", "qwen3:4b")
 
 def extract_installation_info(log_content: str) -> Dict[str, Any]:
     """Extract installation information from build-log.txt."""
@@ -316,7 +317,7 @@ def get_install_logs_tool(job_name: str, build_id: str, test_name: str):
     return run_async_in_thread(get_install_logs_async(job_name, build_id, test_name))
 
 installation_analyst_agent = Agent(
-    model=MODEL,
+    model=LiteLlm(model=MODEL),
     name="installation_analyst_agent",
     instruction=prompt.INSTALLATION_SPECIALIST_PROMPT,
     output_key="installation_analysis_output",

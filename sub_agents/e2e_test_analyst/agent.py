@@ -9,11 +9,12 @@ import httpx
 import threading
 import concurrent.futures
 import re
+import os
 from typing import Dict, Any, Optional, List
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
-MODEL = LiteLlm(model="ollama_chat/qwen3:4b")
+MODEL = os.environ.get("MODEL", "qwen3:4b")
 
 # Prow tool functions for e2e test analysis
 async def get_job_metadata_async(job_name: str, build_id: str) -> Dict[str, Any]:
@@ -327,7 +328,7 @@ def get_junit_results_tool(job_name: str, build_id: str, test_name: str):
     return run_async_in_thread(get_junit_results_async(job_name, build_id, test_name))
 
 e2e_test_analyst_agent = Agent(
-    model=MODEL,
+    model=LiteLlm(model=MODEL),
     name="e2e_test_analyst_agent",
     instruction=prompt.E2E_TEST_SPECIALIST_PROMPT,
     output_key="e2e_test_analysis_output",

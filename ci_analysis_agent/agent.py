@@ -23,11 +23,11 @@ from sub_agents.installation_analyst import installation_analyst_agent
 from sub_agents.e2e_test_analyst import e2e_test_analyst_agent
 from sub_agents.mustgather_analyst import mustgather_analyst_agent
 
-MODEL = LiteLlm(model="ollama_chat/qwen3:4b")
-
+import os
+MODEL = os.environ.get("MODEL", "ollama_chat/qwen3:4b")
 ci_analysis_advisor = LlmAgent(
     name="ci_analysis_advisor",
-    model=MODEL,
+    model=LiteLlm(model=MODEL),
     description=(
         "Analyzes CI jobs and provides root cause analysis for failures."
     ),
