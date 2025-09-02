@@ -1,0 +1,12 @@
+[36mINFO[0m[2025-09-02T05:50:01Z] ci-operator version v20250901-d01622205      
+[36mINFO[0m[2025-09-02T05:50:01Z] Loading configuration from https://config.ci.openshift.org for openshift/multiarch@master [nightly-4.21-upgrade-from-stable-4.20] 
+[36mINFO[0m[2025-09-02T05:50:01Z] Resolved SHA missing for master in https://github.com/openshift/multiarch (will prevent caching) 
+[33mWARN[0m[2025-09-02T05:50:01Z] skipped directory "..2025_09_02_05_49_55.3622197964" when creating secret from directory "/secrets/ci-pull-credentials" 
+[36mINFO[0m[2025-09-02T05:50:01Z] Requesting a release from https://multi.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-multi/latest 
+[36mINFO[0m[2025-09-02T05:50:01Z] Resolved release latest to quay.io/openshift-release-dev/ocp-release-nightly@sha256:41d79805fcf07d276343d882b462ba834e3eb85f541c62008a88bee820958213 
+[36mINFO[0m[2025-09-02T05:50:01Z] Requesting a release from https://multi.ocp.releases.ci.openshift.org/api/v1/releasestream/4-stable-multi/latest?in=%3E4.20.0-0+%3C4.21.0-0 
+[36mINFO[0m[2025-09-02T05:50:01Z] Ran for 0s                                   
+[31mERRO[0m[2025-09-02T05:50:01Z] Some steps failed:                           
+[31mERRO[0m[2025-09-02T05:50:01Z] 
+  * could not resolve inputs: could not determine inputs for step [release:initial]: failed to resolve release initial: failed to request latest release: server responded with 404: no tags exist within the release that satisfy the request 
+[36mINFO[0m[2025-09-02T05:50:01Z] Reporting job state 'failed' with reason 'resolving_inputs:resolving_release' 

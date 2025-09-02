@@ -49,8 +49,8 @@ Available tools:
 - get_install_logs: Fetch and analyze build-log.txt with structured information extraction
 
 ANALYSIS WORKFLOW:
-1. Start with job metadata to understand the test context
-2. Fetch installation logs from build-log.txt which automatically extracts:
+1. call tool get_job_metadata, which provides the test_name
+2. Fetch installation logs from build-log.txt (calling tool get_install_logs with build_id, job_name and test_name) which automatically extracts:
    - Installer binary version and commit
    - Instance types and cluster configuration
    - Installation duration and success status

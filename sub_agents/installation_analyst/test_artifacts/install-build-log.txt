@@ -1,0 +1,254 @@
+Installing from release registry.build03.ci.openshift.org/ci-op-i1xhw661/release@sha256:3b8516fb6f45f612d9612a3524b20abf3e8922422e35499321ff06b5e6b13866
+install-config.yaml
+-------------------
+apiVersion: v1
+metadata:
+  name: ci-op-i1xhw661-ac6cc
+
+sshKey: |
+  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+controlPlane:
+  platform:
+    aws:
+      zones:
+      - us-west-2c
+      - us-west-2b
+      type: m6a.xlarge
+  architecture: amd64
+  name: master
+  replicas: 3
+compute:
+- platform:
+    aws:
+      zones:
+      - us-west-2c
+      - us-west-2b
+      type: m6a.xlarge
+  architecture: amd64
+  name: worker
+  replicas: 3
+baseDomain: origin-ci-int-aws.dev.rhcloud.com
+platform:
+  aws:
+    region: us-west-2
+    userTags:
+      expirationDate: 2025-08-28T14:57+00:00
+      clusterName: ci-op-i1xhw661-ac6cc
+      ci-nat-replace: "false"
+=============== openshift-install version ==============
+openshift-install v4.20.0
+built from commit 26d807e98014ca0c26bf4d0f219a3aaed2cd5405
+release image registry.ci.openshift.org/origin/release:4.20
+level=warning msg=Found override for release image (registry.build03.ci.openshift.org/ci-op-i1xhw661/release@sha256:3b8516fb6f45f612d9612a3524b20abf3e8922422e35499321ff06b5e6b13866). Release Image Architecture is unknown
+release architecture unknown
+default architecture amd64
+level=warning msg=Found override for release image (registry.build03.ci.openshift.org/ci-op-i1xhw661/release@sha256:3b8516fb6f45f612d9612a3524b20abf3e8922422e35499321ff06b5e6b13866). Release Image Architecture is unknown
+level=info msg=Credentials loaded from the "default" profile in file "/var/run/secrets/ci.openshift.io/cluster-profile/.awscred"
+level=info msg=Consuming Install Config from target directory
+level=info msg=Successfully populated MCS CA cert information: root-ca 2035-08-26T06:58:23Z 2025-08-28T06:58:23Z
+level=info msg=Successfully populated MCS TLS cert information: root-ca 2035-08-26T06:58:23Z 2025-08-28T06:58:23Z
+level=info msg=Adding clusters...
+level=info msg=Manifests created in: /tmp/installer/cluster-api, /tmp/installer/manifests and /tmp/installer/openshift
+Release payload version: 4.20.0-0.nightly-multi-2025-08-27-070633
+This is likely an upgrade job (OPENSHIFT_INSTALL_RELEASE_IMAGE_OVERRIDE differs from nonempty OPENSHIFT_UPGRADE_RELEASE_IMAGE_OVERRIDE)
+Cluster cannot query OpenShift Update Service (OSUS/Cincinnati), cleaning the channel
+Will include manifests:
+/tmp/secret/manifest_creds.yml
+/tmp/secret/manifest_eventexporter_sa.yml
+/tmp/secret/manifest_cluster-monitoring-config.yaml
+/tmp/secret/manifest_sa.yml
+/tmp/secret/manifest_oauth_role.yml
+/tmp/secret/manifest_eventexporter_deployment.yml
+/tmp/secret/manifest_clusterrole.yml
+/tmp/secret/manifest_metrics_role.yml
+/tmp/secret/manifest_clusterrolebinding.yml
+/tmp/secret/manifest_01_ns.yml
+/tmp/secret/manifest_oauth_clusterrolebinding.yml
+/tmp/secret/manifest_ds.yml
+/tmp/secret/manifest_metrics_rb.yml
+/tmp/secret/manifest_eventexporter_crb.yml
+/tmp/secret/manifest_promtail_service.yml
+/tmp/secret/manifest_promtail_cookie_secret.yml
+/tmp/secret/manifest_eventexporter_config.yml
+/tmp/secret/manifest_cm.yml
+/tmp/secret/manifest_metrics.yml
+Will include following openshift config files:
+'/tmp/installer' -> '/tmp/install-orig'
+'/tmp/installer/openshift' -> '/tmp/install-orig/openshift'
+'/tmp/installer/openshift/99_openshift-cluster-api_master-user-data-secret.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_master-user-data-secret.yaml'
+'/tmp/installer/openshift/99_openshift-machineconfig_99-master-ssh.yaml' -> '/tmp/install-orig/openshift/99_openshift-machineconfig_99-master-ssh.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_master-machines-0.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_master-machines-0.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_master-machines-1.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_master-machines-1.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_master-machines-2.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_master-machines-2.yaml'
+'/tmp/installer/openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml' -> '/tmp/install-orig/openshift/99_openshift-machine-api_master-control-plane-machine-set.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_worker-user-data-secret.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_worker-user-data-secret.yaml'
+'/tmp/installer/openshift/99_openshift-machineconfig_99-worker-ssh.yaml' -> '/tmp/install-orig/openshift/99_openshift-machineconfig_99-worker-ssh.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_worker-machineset-0.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_worker-machineset-0.yaml'
+'/tmp/installer/openshift/99_openshift-cluster-api_worker-machineset-1.yaml' -> '/tmp/install-orig/openshift/99_openshift-cluster-api_worker-machineset-1.yaml'
+'/tmp/installer/openshift/99_cloud-creds-secret.yaml' -> '/tmp/install-orig/openshift/99_cloud-creds-secret.yaml'
+'/tmp/installer/openshift/99_feature-gate.yaml' -> '/tmp/install-orig/openshift/99_feature-gate.yaml'
+'/tmp/installer/openshift/99_kubeadmin-password-secret.yaml' -> '/tmp/install-orig/openshift/99_kubeadmin-password-secret.yaml'
+'/tmp/installer/openshift/99_role-cloud-creds-secret-reader.yaml' -> '/tmp/install-orig/openshift/99_role-cloud-creds-secret-reader.yaml'
+'/tmp/installer/openshift/openshift-install-manifests.yaml' -> '/tmp/install-orig/openshift/openshift-install-manifests.yaml'
+'/tmp/installer/cluster-api' -> '/tmp/install-orig/cluster-api'
+'/tmp/installer/cluster-api/000_capi-namespace.yaml' -> '/tmp/install-orig/cluster-api/000_capi-namespace.yaml'
+'/tmp/installer/cluster-api/01_aws-cluster-controller-identity-default.yaml' -> '/tmp/install-orig/cluster-api/01_aws-cluster-controller-identity-default.yaml'
+'/tmp/installer/cluster-api/01_capi-cluster-0.yaml' -> '/tmp/install-orig/cluster-api/01_capi-cluster-0.yaml'
+'/tmp/installer/cluster-api/02_infra-cluster.yaml' -> '/tmp/install-orig/cluster-api/02_infra-cluster.yaml'
+'/tmp/installer/cluster-api/machines' -> '/tmp/install-orig/cluster-api/machines'
+'/tmp/installer/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml' -> '/tmp/install-orig/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml'
+'/tmp/installer/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml' -> '/tmp/install-orig/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml'
+'/tmp/installer/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml' -> '/tmp/install-orig/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml'
+'/tmp/installer/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml' -> '/tmp/install-orig/cluster-api/machines/10_inframachine_ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml'
+'/tmp/installer/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml' -> '/tmp/install-orig/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml'
+'/tmp/installer/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml' -> '/tmp/install-orig/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml'
+'/tmp/installer/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml' -> '/tmp/install-orig/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml'
+'/tmp/installer/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml' -> '/tmp/install-orig/cluster-api/machines/10_machine_ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml'
+'/tmp/installer/.openshift_install.log' -> '/tmp/install-orig/.openshift_install.log'
+'/tmp/installer/.openshift_install_state.json' -> '/tmp/install-orig/.openshift_install_state.json'
+'/tmp/installer/tls' -> '/tmp/install-orig/tls'
+'/tmp/installer/manifests' -> '/tmp/install-orig/manifests'
+'/tmp/installer/manifests/cloud-provider-config.yaml' -> '/tmp/install-orig/manifests/cloud-provider-config.yaml'
+'/tmp/installer/manifests/cluster-config.yaml' -> '/tmp/install-orig/manifests/cluster-config.yaml'
+'/tmp/installer/manifests/cluster-dns-02-config.yml' -> '/tmp/install-orig/manifests/cluster-dns-02-config.yml'
+'/tmp/installer/manifests/cluster-infrastructure-02-config.yml' -> '/tmp/install-orig/manifests/cluster-infrastructure-02-config.yml'
+'/tmp/installer/manifests/cluster-ingress-02-config.yml' -> '/tmp/install-orig/manifests/cluster-ingress-02-config.yml'
+'/tmp/installer/manifests/cluster-network-02-config.yml' -> '/tmp/install-orig/manifests/cluster-network-02-config.yml'
+'/tmp/installer/manifests/cluster-proxy-01-config.yaml' -> '/tmp/install-orig/manifests/cluster-proxy-01-config.yaml'
+'/tmp/installer/manifests/cluster-scheduler-02-config.yml' -> '/tmp/install-orig/manifests/cluster-scheduler-02-config.yml'
+'/tmp/installer/manifests/creds.yml' -> '/tmp/install-orig/manifests/creds.yml'
+'/tmp/installer/manifests/kube-cloud-config.yaml' -> '/tmp/install-orig/manifests/kube-cloud-config.yaml'
+'/tmp/installer/manifests/kube-system-configmap-root-ca.yaml' -> '/tmp/install-orig/manifests/kube-system-configmap-root-ca.yaml'
+'/tmp/installer/manifests/machine-config-server-ca-configmap.yaml' -> '/tmp/install-orig/manifests/machine-config-server-ca-configmap.yaml'
+'/tmp/installer/manifests/machine-config-server-ca-secret.yaml' -> '/tmp/install-orig/manifests/machine-config-server-ca-secret.yaml'
+'/tmp/installer/manifests/machine-config-server-tls-secret.yaml' -> '/tmp/install-orig/manifests/machine-config-server-tls-secret.yaml'
+'/tmp/installer/manifests/openshift-config-secret-pull-secret.yaml' -> '/tmp/install-orig/manifests/openshift-config-secret-pull-secret.yaml'
+'/tmp/installer/manifests/cvo-overrides.yaml' -> '/tmp/install-orig/manifests/cvo-overrides.yaml'
+'/tmp/installer/manifests/eventexporter_sa.yml' -> '/tmp/install-orig/manifests/eventexporter_sa.yml'
+'/tmp/installer/manifests/cluster-monitoring-config.yaml' -> '/tmp/install-orig/manifests/cluster-monitoring-config.yaml'
+'/tmp/installer/manifests/sa.yml' -> '/tmp/install-orig/manifests/sa.yml'
+'/tmp/installer/manifests/oauth_role.yml' -> '/tmp/install-orig/manifests/oauth_role.yml'
+'/tmp/installer/manifests/eventexporter_deployment.yml' -> '/tmp/install-orig/manifests/eventexporter_deployment.yml'
+'/tmp/installer/manifests/clusterrole.yml' -> '/tmp/install-orig/manifests/clusterrole.yml'
+'/tmp/installer/manifests/metrics_role.yml' -> '/tmp/install-orig/manifests/metrics_role.yml'
+'/tmp/installer/manifests/clusterrolebinding.yml' -> '/tmp/install-orig/manifests/clusterrolebinding.yml'
+'/tmp/installer/manifests/01_ns.yml' -> '/tmp/install-orig/manifests/01_ns.yml'
+'/tmp/installer/manifests/oauth_clusterrolebinding.yml' -> '/tmp/install-orig/manifests/oauth_clusterrolebinding.yml'
+'/tmp/installer/manifests/ds.yml' -> '/tmp/install-orig/manifests/ds.yml'
+'/tmp/installer/manifests/metrics_rb.yml' -> '/tmp/install-orig/manifests/metrics_rb.yml'
+'/tmp/installer/manifests/eventexporter_crb.yml' -> '/tmp/install-orig/manifests/eventexporter_crb.yml'
+'/tmp/installer/manifests/promtail_service.yml' -> '/tmp/install-orig/manifests/promtail_service.yml'
+'/tmp/installer/manifests/promtail_cookie_secret.yml' -> '/tmp/install-orig/manifests/promtail_cookie_secret.yml'
+'/tmp/installer/manifests/eventexporter_config.yml' -> '/tmp/install-orig/manifests/eventexporter_config.yml'
+'/tmp/installer/manifests/cm.yml' -> '/tmp/install-orig/manifests/cm.yml'
+'/tmp/installer/manifests/metrics.yml' -> '/tmp/install-orig/manifests/metrics.yml'
+Install attempt 1 of 1
+waiting for /tmp/installer/auth/kubeconfig to exist
+level=warning msg=Found override for release image (registry.build03.ci.openshift.org/ci-op-i1xhw661/release@sha256:3b8516fb6f45f612d9612a3524b20abf3e8922422e35499321ff06b5e6b13866). Please be warned, this is not advised
+level=info msg=Consuming OpenShift Install (Manifests) from target directory
+level=info msg=Consuming Master Machines from target directory
+level=info msg=Consuming Openshift Manifests from target directory
+level=info msg=Consuming Common Manifests from target directory
+level=info msg=Consuming Worker Machines from target directory
+level=info msg=Credentials loaded from the "default" profile in file "/var/run/secrets/ci.openshift.io/cluster-profile/.awscred"
+level=info msg=Credentials loaded from the AWS config using "SharedConfigCredentials: /var/run/secrets/ci.openshift.io/cluster-profile/.awscred" provider
+kubeconfig received!
+waiting for api to be available
+level=info msg=Creating infrastructure resources...
+level=info msg=Reconciling IAM roles for control-plane and compute nodes
+level=info msg=Creating IAM role for master
+level=info msg=Creating IAM role for worker
+level=info msg=Started local control plane with envtest
+level=info msg=Stored kubeconfig for envtest in: /tmp/installer/.clusterapi_output/envtest.kubeconfig
+level=info msg=Running process: Cluster API with args [-v=2 --diagnostics-address=0 --health-addr=127.0.0.1:37293 --webhook-port=46663 --webhook-cert-dir=/tmp/envtest-serving-certs-3553329038 --kubeconfig=/tmp/installer/.clusterapi_output/envtest.kubeconfig]
+level=info msg=Running process: aws infrastructure provider with args [-v=4 --diagnostics-address=0 --health-addr=127.0.0.1:33089 --webhook-port=33191 --webhook-cert-dir=/tmp/envtest-serving-certs-3763561028 --feature-gates=BootstrapFormatIgnition=true,ExternalResourceGC=true,TagUnmanagedNetworkResources=false,EKS=false --kubeconfig=/tmp/installer/.clusterapi_output/envtest.kubeconfig]
+level=info msg=Creating infra manifests...
+level=info msg=Created manifest *v1.Namespace, namespace= name=openshift-cluster-api-guests
+level=info msg=Created manifest *v1beta2.AWSClusterControllerIdentity, namespace= name=default
+level=info msg=Created manifest *v1beta1.Cluster, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs
+level=info msg=Created manifest *v1beta2.AWSCluster, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs
+level=info msg=Done creating infra manifests
+level=info msg=Creating kubeconfig entry for capi cluster ci-op-i1xhw661-ac6cc-7hnhs
+level=info msg=Waiting up to 15m0s (until 7:13AM UTC) for network infrastructure to become ready...
+level=info msg=Network infrastructure is ready
+level=info msg=Creating Route53 records for control plane load balancer
+level=info msg=Created private Hosted Zone
+level=info msg=Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-bootstrap
+level=info msg=Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-0
+level=info msg=Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-1
+level=info msg=Created manifest *v1beta2.AWSMachine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-2
+level=info msg=Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-bootstrap
+level=info msg=Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-0
+level=info msg=Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-1
+level=info msg=Created manifest *v1beta1.Machine, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master-2
+level=info msg=Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-bootstrap
+level=info msg=Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-master
+level=info msg=Created manifest *v1.Secret, namespace=openshift-cluster-api-guests name=ci-op-i1xhw661-ac6cc-7hnhs-worker
+level=info msg=Waiting up to 15m0s (until 7:21AM UTC) for machines [ci-op-i1xhw661-ac6cc-7hnhs-bootstrap ci-op-i1xhw661-ac6cc-7hnhs-master-0 ci-op-i1xhw661-ac6cc-7hnhs-master-1 ci-op-i1xhw661-ac6cc-7hnhs-master-2] to provision...
+level=info msg=Control-plane machines are ready
+level=info msg=Cluster API resources have been created. Waiting for cluster to become ready...
+level=info msg=Consuming Cluster API Machine Manifests from target directory
+level=info msg=Consuming Cluster API Manifests from target directory
+level=info msg=Waiting up to 20m0s (until 7:27AM UTC) for the Kubernetes API at https://api.ci-op-i1xhw661-ac6cc.origin-ci-int-aws.dev.rhcloud.com:6443...
+level=info msg=API v1.33.3 up
+level=info msg=Waiting up to 45m0s (until 7:55AM UTC) for bootstrapping to complete...
+api available
+waiting for bootstrap to complete
+level=info msg=Waiting up to 20m0s (until 7:30AM UTC) for the Kubernetes API at https://api.ci-op-i1xhw661-ac6cc.origin-ci-int-aws.dev.rhcloud.com:6443...
+level=info msg=API v1.33.3 up
+level=info msg=Waiting up to 45m0s (until 7:55AM UTC) for bootstrapping to complete...
+level=info msg=Waiting for the bootstrap etcd member to be removed...
+level=info msg=Waiting for the bootstrap etcd member to be removed...
+level=info msg=Bootstrap etcd member has been removed
+level=info msg=OPENSHIFT_INSTALL_GATHER_BOOTSTRAP is set, will attempt to gather a log bundle
+level=info msg=Bootstrap etcd member has been removed
+level=info msg=It is now safe to remove the bootstrap resources
+level=info msg=Time elapsed: 15m44s
+Copying kubeconfig to shared dir as kubeconfig-minimal
+level=info msg=Pulling Cluster API artifacts
+level=info msg=Pulling VM console logs
+level=info msg=Pulling debug logs from the bootstrap machine
+level=info msg=Bootstrap gather logs captured here "/tmp/installer/log-bundle-20250828072630.tar.gz"
+level=info msg=Destroying the bootstrap resources...
+level=info msg=Waiting up to 5m0s for bootstrap machine deletion openshift-cluster-api-guests/ci-op-i1xhw661-ac6cc-7hnhs-bootstrap...
+level=info msg=Shutting down local Cluster API controllers...
+level=info msg=Stopped controller: Cluster API
+level=info msg=Stopped controller: aws infrastructure provider
+level=info msg=Shutting down local Cluster API control plane...
+level=info msg=Local Cluster API system has completed operations
+level=info msg=Finished destroying bootstrap resources
+level=info msg=Waiting up to 40m0s (until 8:08AM UTC) for the cluster at https://api.ci-op-i1xhw661-ac6cc.origin-ci-int-aws.dev.rhcloud.com:6443 to initialize...
+level=info msg=Waiting up to 30m0s (until 8:10AM UTC) to ensure each cluster operator has finished progressing...
+level=info msg=All cluster operators have completed progressing
+level=info msg=Checking to see if there is a route at openshift-console/console...
+level=info msg=Install complete!
+level=info msg=To access the cluster as the system:admin user when using 'oc', run
+level=info msg=    export KUBECONFIG=/tmp/installer/auth/kubeconfig
+level=info msg=Access the OpenShift web-console here: https://console-openshift-console.apps.ci-op-i1xhw661-ac6cc.origin-ci-int-aws.dev.rhcloud.com
+level=info msg=Time elapsed: 42m48s
+Installer exit with code 0
+Tear down the backgroup process of copying kube config
+The process - 173 is not existing any more
+Setup phase finished, prepare env for next steps
+Copying log bundle...
+Removing REDACTED info from log...
+Unsupported cluster type 'aws' to collect machine IDs
+Copying Cluster API generated manifests...
+'/tmp/installer/.clusterapi_output/etcd.log' -> '/logs/artifacts/clusterapi_output-1756366873/etcd.log'
+'/tmp/installer/.clusterapi_output/kube-apiserver.log' -> '/logs/artifacts/clusterapi_output-1756366873/kube-apiserver.log'
+'/tmp/installer/.clusterapi_output/AWSCluster-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSCluster-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs.yaml'
+'/tmp/installer/.clusterapi_output/AWSClusterControllerIdentity--default.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSClusterControllerIdentity--default.yaml'
+'/tmp/installer/.clusterapi_output/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml'
+'/tmp/installer/.clusterapi_output/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml'
+'/tmp/installer/.clusterapi_output/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml'
+'/tmp/installer/.clusterapi_output/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/AWSMachine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml'
+'/tmp/installer/.clusterapi_output/Cluster-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Cluster-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs.yaml'
+'/tmp/installer/.clusterapi_output/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml'
+'/tmp/installer/.clusterapi_output/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-0.yaml'
+'/tmp/installer/.clusterapi_output/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-1.yaml'
+'/tmp/installer/.clusterapi_output/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Machine-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master-2.yaml'
+'/tmp/installer/.clusterapi_output/Namespace--openshift-cluster-api-guests.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Namespace--openshift-cluster-api-guests.yaml'
+'/tmp/installer/.clusterapi_output/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-bootstrap.yaml'
+'/tmp/installer/.clusterapi_output/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-master.yaml'
+'/tmp/installer/.clusterapi_output/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-worker.yaml' -> '/logs/artifacts/clusterapi_output-1756366873/Secret-openshift-cluster-api-guests-ci-op-i1xhw661-ac6cc-7hnhs-worker.yaml'
+Copying required artifacts to shared dir

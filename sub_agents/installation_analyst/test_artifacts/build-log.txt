@@ -1,0 +1,92 @@
+[36mINFO[0m[2025-09-02T05:49:58Z] ci-operator version v20250901-d01622205      
+[36mINFO[0m[2025-09-02T05:49:58Z] Loading configuration from https://config.ci.openshift.org for openshift/multiarch@master [nightly-4.21] 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved SHA missing for master in https://github.com/openshift/multiarch (will prevent caching) 
+[33mWARN[0m[2025-09-02T05:49:59Z] skipped directory "..2025_09_02_05_49_52.3438119758" when creating secret from directory "/secrets/ci-pull-credentials" 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://multi.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-multi/latest 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release latest to quay.io/openshift-release-dev/ocp-release-nightly@sha256:41d79805fcf07d276343d882b462ba834e3eb85f541c62008a88bee820958213 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://ppc64le.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-ppc64le/latest 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release ppc64le-latest to registry.ci.openshift.org/ocp-ppc64le/release-ppc64le:4.21.0-0.nightly-ppc64le-2025-09-02-000150 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://s390x.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-s390x/latest 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release s390x-latest to registry.ci.openshift.org/ocp-s390x/release-s390x:4.21.0-0.nightly-s390x-2025-09-02-000149 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://arm64.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-arm64/latest?rel=1 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release arm64-initial to registry.ci.openshift.org/ocp-arm64/release-arm64:4.21.0-0.nightly-arm64-2025-09-01-180149 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://arm64.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-arm64/latest 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release arm64-latest to registry.ci.openshift.org/ocp-arm64/release-arm64:4.21.0-0.nightly-arm64-2025-09-02-000149 
+[36mINFO[0m[2025-09-02T05:49:59Z] Requesting a release from https://multi.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-multi/latest?rel=1 
+[36mINFO[0m[2025-09-02T05:49:59Z] Resolved release initial to quay.io/openshift-release-dev/ocp-release-nightly@sha256:b37d7e7d6d7b5eb536b246b9a62fcb478a010293b36a79542a3a5d0164b750e8 
+[36mINFO[0m[2025-09-02T05:50:00Z] Using namespace https://console-openshift-console.apps.build03.ci.devcluster.openshift.com/k8s/cluster/projects/ci-op-fjs43nlx 
+[36mINFO[0m[2025-09-02T05:50:00Z] Running [input:origin-centos-8], [input:ocp-4.12-upi-installer], [input:ocp-4.16-upi-installer], [input:ocp-4.14-upi-installer], [release:latest], [images], ocp-e2e-aws-ovn-multi-a-a 
+[36mINFO[0m[2025-09-02T05:50:00Z] Loading information from https://config.ci.openshift.org for cluster profile aws 
+[36mINFO[0m[2025-09-02T05:50:00Z] Tagging ocp/4.16:upi-installer into pipeline:ocp-4.16-upi-installer. 
+[36mINFO[0m[2025-09-02T05:50:00Z] Tagging ocp/4.14:upi-installer into pipeline:ocp-4.14-upi-installer. 
+[36mINFO[0m[2025-09-02T05:50:00Z] Tagging origin/centos:8 into pipeline:origin-centos-8. 
+[36mINFO[0m[2025-09-02T05:50:00Z] Tagging ocp/4.12:upi-installer into pipeline:ocp-4.12-upi-installer. 
+[36mINFO[0m[2025-09-02T05:50:01Z] Importing release image latest.              
+[36mINFO[0m[2025-09-02T05:50:01Z] Requesting a release from https://multi.ocp.releases.ci.openshift.org/api/v1/releasestream/4.21.0-0.nightly-multi/latest 
+[36mINFO[0m[2025-09-02T05:50:01Z] Resolved release latest to quay.io/openshift-release-dev/ocp-release-nightly@sha256:41d79805fcf07d276343d882b462ba834e3eb85f541c62008a88bee820958213 
+[36mINFO[0m[2025-09-02T05:50:14Z] Importing release 4.21.0-0.nightly-multi-2025-09-01-223641 created at 2025-09-01 22:37:27 +0000 UTC with 191 images to tag release:latest ... 
+[36mINFO[0m[2025-09-02T05:52:46Z] Imported release 4.21.0-0.nightly-multi-2025-09-01-223641 created at 2025-09-01 22:37:27 +0000 UTC with 191 images to tag release:latest 
+[36mINFO[0m[2025-09-02T05:52:46Z] Acquiring leases for test ocp-e2e-aws-ovn-multi-a-a: [aws-quota-slice] 
+[36mINFO[0m[2025-09-02T05:52:46Z] Acquired 1 lease(s) for aws-quota-slice: [us-east-1--aws-quota-slice-11] 
+[36mINFO[0m[2025-09-02T05:52:46Z] Acquiring IP Pool leases for test ocp-e2e-aws-ovn-multi-a-a: aws-ip-pools-us-east-1 
+[36mINFO[0m[2025-09-02T05:52:46Z] Acquired 13 ip pool lease(s) for aws-ip-pools-us-east-1: [cfa76804-b31e-4b34-bd9c-b831ed129083 e13dba71-3f52-4180-a125-f9363cb7f61e 6f94f351-6cc6-4f8d-a63f-9bacdca26d98 880af148-5400-4b7c-847e-011b6a2d1ba7 a77450e4-e504-478d-91da-672fc463b9ef 182ba88d-6195-41ac-a49b-99f79f91b8c3 c36ade91-e68c-45cc-b6de-311ba3bc0a45 4a7c40ad-b9a9-4d34-ab7f-9e63c7d49bbe 691c8080-6f39-4cc3-bb20-05bba5f6b12d 44d79b7d-405d-45d7-8db6-2799d57a39ea 78634fee-21cf-451a-a37c-9f2b29f3e5d5 cf933c74-af42-4d09-98b4-1eaee95b0b1d 1a64d126-68af-4b7f-9724-5183183e3105] 
+[36mINFO[0m[2025-09-02T05:52:46Z] Running multi-stage test ocp-e2e-aws-ovn-multi-a-a 
+[36mINFO[0m[2025-09-02T05:52:47Z] Running multi-stage phase pre                
+[36mINFO[0m[2025-09-02T05:52:47Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-conf. 
+[36mINFO[0m[2025-09-02T05:52:56Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-conf succeeded after 9s. 
+[36mINFO[0m[2025-09-02T05:52:56Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-telemetry. 
+[36mINFO[0m[2025-09-02T05:53:08Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-telemetry succeeded after 11s. 
+[36mINFO[0m[2025-09-02T05:53:08Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-aws. 
+[36mINFO[0m[2025-09-02T05:53:19Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-aws succeeded after 10s. 
+[36mINFO[0m[2025-09-02T05:53:19Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-aws-byo-ipv4-pool-public. 
+[36mINFO[0m[2025-09-02T05:53:28Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-conf-aws-byo-ipv4-pool-public succeeded after 9s. 
+[36mINFO[0m[2025-09-02T05:53:28Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-install-monitoringpvc. 
+[36mINFO[0m[2025-09-02T05:53:37Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-install-monitoringpvc succeeded after 9s. 
+[36mINFO[0m[2025-09-02T05:53:37Z] Running step ocp-e2e-aws-ovn-multi-a-a-ovn-conf. 
+[36mINFO[0m[2025-09-02T05:53:44Z] Step ocp-e2e-aws-ovn-multi-a-a-ovn-conf succeeded after 7s. 
+[36mINFO[0m[2025-09-02T05:53:44Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-install-rbac. 
+[36mINFO[0m[2025-09-02T05:53:46Z] there are 8 unused ip-pool addresses to release 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: cfa76804-b31e-4b34-bd9c-b831ed129083 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: e13dba71-3f52-4180-a125-f9363cb7f61e 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: 6f94f351-6cc6-4f8d-a63f-9bacdca26d98 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: 880af148-5400-4b7c-847e-011b6a2d1ba7 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: a77450e4-e504-478d-91da-672fc463b9ef 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: 182ba88d-6195-41ac-a49b-99f79f91b8c3 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: c36ade91-e68c-45cc-b6de-311ba3bc0a45 
+[36mINFO[0m[2025-09-02T05:53:46Z] releasing unused ip-pool lease: 4a7c40ad-b9a9-4d34-ab7f-9e63c7d49bbe 
+[36mINFO[0m[2025-09-02T05:54:05Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-install-rbac succeeded after 20s. 
+[36mINFO[0m[2025-09-02T05:54:05Z] Running step ocp-e2e-aws-ovn-multi-a-a-openshift-cluster-bot-rbac. 
+[36mINFO[0m[2025-09-02T05:54:14Z] Step ocp-e2e-aws-ovn-multi-a-a-openshift-cluster-bot-rbac succeeded after 9s. 
+[36mINFO[0m[2025-09-02T05:54:14Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-install-hosted-loki. 
+[36mINFO[0m[2025-09-02T05:54:21Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-install-hosted-loki succeeded after 7s. 
+[36mINFO[0m[2025-09-02T05:54:21Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-install-install. 
+[36mINFO[0m[2025-09-02T06:36:57Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-install-install succeeded after 42m35s. 
+[36mINFO[0m[2025-09-02T06:36:57Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-install-times-collection. 
+[36mINFO[0m[2025-09-02T06:37:06Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-install-times-collection succeeded after 9s. 
+[36mINFO[0m[2025-09-02T06:37:06Z] Running step ocp-e2e-aws-ovn-multi-a-a-nodes-readiness. 
+[36mINFO[0m[2025-09-02T06:37:14Z] Step ocp-e2e-aws-ovn-multi-a-a-nodes-readiness succeeded after 8s. 
+[36mINFO[0m[2025-09-02T06:37:14Z] Running step ocp-e2e-aws-ovn-multi-a-a-multiarch-validate-nodes. 
+[36mINFO[0m[2025-09-02T06:37:25Z] Step ocp-e2e-aws-ovn-multi-a-a-multiarch-validate-nodes succeeded after 11s. 
+[36mINFO[0m[2025-09-02T06:37:25Z] Step phase pre succeeded after 44m38s.       
+[36mINFO[0m[2025-09-02T06:37:25Z] Running multi-stage phase test               
+[36mINFO[0m[2025-09-02T06:37:25Z] Running step ocp-e2e-aws-ovn-multi-a-a-openshift-e2e-test. 
+[36mINFO[0m[2025-09-02T07:43:59Z] Step ocp-e2e-aws-ovn-multi-a-a-openshift-e2e-test succeeded after 1h6m33s. 
+[36mINFO[0m[2025-09-02T07:43:59Z] Step phase test succeeded after 1h6m33s.     
+[36mINFO[0m[2025-09-02T07:43:59Z] Running multi-stage phase post               
+[36mINFO[0m[2025-09-02T07:43:59Z] Running step ocp-e2e-aws-ovn-multi-a-a-gather-network. 
+[36mINFO[0m[2025-09-02T07:46:27Z] Step ocp-e2e-aws-ovn-multi-a-a-gather-network succeeded after 2m28s. 
+[36mINFO[0m[2025-09-02T07:46:27Z] Running step ocp-e2e-aws-ovn-multi-a-a-gather-core-dump. 
+[36mINFO[0m[2025-09-02T07:46:45Z] Step ocp-e2e-aws-ovn-multi-a-a-gather-core-dump succeeded after 17s. 
+[36mINFO[0m[2025-09-02T07:46:45Z] Running step ocp-e2e-aws-ovn-multi-a-a-gather-must-gather. 
+[36mINFO[0m[2025-09-02T07:49:05Z] Step ocp-e2e-aws-ovn-multi-a-a-gather-must-gather succeeded after 2m20s. 
+[36mINFO[0m[2025-09-02T07:49:05Z] Running step ocp-e2e-aws-ovn-multi-a-a-gather-extra. 
+[36mINFO[0m[2025-09-02T07:54:05Z] Step ocp-e2e-aws-ovn-multi-a-a-gather-extra succeeded after 5m0s. 
+[36mINFO[0m[2025-09-02T07:54:05Z] Running step ocp-e2e-aws-ovn-multi-a-a-gather-audit-logs. 
+[36mINFO[0m[2025-09-02T07:54:55Z] Step ocp-e2e-aws-ovn-multi-a-a-gather-audit-logs succeeded after 49s. 
+[36mINFO[0m[2025-09-02T07:54:55Z] Running step ocp-e2e-aws-ovn-multi-a-a-ipi-deprovision-deprovision. 
+[36mINFO[0m[2025-09-02T07:59:16Z] Step ocp-e2e-aws-ovn-multi-a-a-ipi-deprovision-deprovision succeeded after 4m21s. 
+[36mINFO[0m[2025-09-02T07:59:16Z] Step phase post succeeded after 15m17s.      
+[36mINFO[0m[2025-09-02T07:59:16Z] Releasing ip pool leases for test ocp-e2e-aws-ovn-multi-a-a 
+[36mINFO[0m[2025-09-02T07:59:16Z] Releasing leases for test ocp-e2e-aws-ovn-multi-a-a 
+[36mINFO[0m[2025-09-02T07:59:17Z] Ran for 2h9m17s                              
+[36mINFO[0m[2025-09-02T07:59:17Z] Reporting job state 'succeeded'              

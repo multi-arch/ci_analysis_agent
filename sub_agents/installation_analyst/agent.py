@@ -6,6 +6,7 @@ from . import prompt
 
 import asyncio
 import httpx
+import re
 import threading
 import concurrent.futures
 import re
@@ -30,8 +31,8 @@ def extract_installation_info(log_content: str) -> Dict[str, Any]:
     
     # Extract openshift-install version and commit (can be on separate lines)
     version_patterns = [
-        r'openshift-install v([^\s"]+)',
-        r'"openshift-install v([^\s"]+)"'
+        r'openshift-install v([0-9][^\s"]+)',
+        r'"openshift-install v([0-9][^\s"]+)"'
     ]
     
     for pattern in version_patterns:
@@ -135,36 +136,57 @@ def extract_installation_info(log_content: str) -> Dict[str, Any]:
     
     return install_info
 
+def get_job_metadata(raw_data: str) -> Dict[str, Any]:
+        # Extract test_name from data using regex
+        test_name = None
+        match_test_name = re.search(r"Running multi-stage test ([^\s]*)", raw_data)
+        if match_test_name:
+            test_name = match_test_name.group(1)
+        print(f"test_name: {test_name}")
+        status = None
+        match_status = re.search(r"Reporting job state '([^']*)'", raw_data)
+        if match_status:
+            status = match_status.group(1)
+        print(f"status: {status}")
+        data = {
+            "status": status, 
+            "test_name": test_name,
+        }
+
+        match_reason = re.search(r"Reporting job state '([^']*)' with reason '([^']*)'", raw_data)
+        if match_reason:
+            status = match_reason.group(1)
+            failure_reason = match_reason.group(2)
+            print(f"failure_reason: {failure_reason}")
+            data["failure_reason"] = failure_reason
+        
+        
+        return data
 # Prow tool functions for installation analysis
 async def get_job_metadata_async(job_name: str, build_id: str) -> Dict[str, Any]:
     """Get the metadata and status for a specific Prow job name and build id."""
-    url = f"{GCS_URL}/{job_name}/{build_id}/prowjob.json"
+    url = f"{GCS_URL}/{job_name}/{build_id}/build-log.txt"
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(url)
             response.raise_for_status()
-            data = response.json()
+            data = response.text
             
         if not data:
             return {"error": "No response from Prow API"}
-            
-        job_spec = data.get("spec", {})
-        job_status = data.get("status", {})
-        
-        build_id_from_status = job_status.get("build_id")
-        status = job_status.get("state")
-        args = job_spec.get("pod_spec", {}).get("containers", [])[0].get("args", [])
-        test_name = ""
-        for arg in args: 
-            if arg.startswith("--target="):
-                test_name = arg.replace("--target=", "")
-        
-        return {
-            "status": status, 
-            "build_id": build_id_from_status, 
+        print(f"was able to get build-log.txt")
+        somedata = get_job_metadata(data)
+        metadata = {
+            "build_id": build_id,
             "job_name": job_name,
-            "test_name": test_name
+            "test_name": somedata["test_name"],
+            # "job_overall_status": somedata["status"],
+            # "job_overall_failure_reason": somedata["failure_reason"]
         }
+        print(f"metadata: {metadata}")        
+
+        return metadata
+        
             
     except Exception as e:
         return {"error": f"Failed to fetch job info: {str(e)}"}
