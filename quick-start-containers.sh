@@ -15,8 +15,10 @@ NC='\033[0m' # No Color
 # Configuration
 OLLAMA_CONTAINER="ollama"
 AGENT_CONTAINER="ci-analysis-agent"
+LOKI_MCP_CONTAINER="loki-mcp"
 OLLAMA_VOLUME="ollama-data"
 OLLAMA_MODEL="qwen3:4b"
+MCP_SERVER_PORT="8888"
 AGENT_PORT="8000"
 OLLAMA_PORT="11434"
 USE_GPU="auto"  # auto, nvidia, amd, none
@@ -175,6 +177,11 @@ cleanup_existing() {
         podman stop "$AGENT_CONTAINER" 2>/dev/null || true
         podman rm "$AGENT_CONTAINER" 2>/dev/null || true
     fi
+
+    if podman container exists "$LOKI_MCP_CONTAINER" 2>/dev/null; then
+        podman stop "$LOKI_MCP_CONTAINER" 2>/dev/null || true
+        podman rm "$LOKI_MCP_CONTAINER" 2>/dev/null || true
+    fi
     
     print_success "Cleanup completed"
 }
@@ -280,6 +287,34 @@ start_agent() {
     print_success "CI Analysis Agent container started"
 }
 
+build_loki_mcp() {
+    print_status "Building Loki MCP container..."
+    git clone https://github.com/grafana/loki-mcp.git
+    podman build -t loki-mcp:latest loki-mcp
+    print_success "Loki MCP container built"
+}
+
+start_loki_mcp() {
+    print_status "Starting Loki MCP container..."
+    podman run -d --name "$LOKI_MCP_CONTAINER" -e MCP_TRANSPORT=http=stream  -p "$MCP_SERVER_PORT:8080" loki-mcp:latest
+    print_success "Loki MCP container started"
+    # Wait for MCP server to be ready
+    print_status "Waiting for MCP server to be ready..."
+    sleep 5
+
+    # Check if MCP server is responding
+    for i in {1..15}; do
+        if curl -s -f "http://localhost:$MCP_SERVER_PORT/" >/dev/null 2>&1; then
+            print_success "Loki MCP server is ready"
+            break
+        fi
+        if [ $i -eq 15 ]; then
+            print_warning "Loki MCP server may not be fully ready yet"
+        fi
+        sleep 2
+    done
+}
+
 # Function to verify deployment
 verify_deployment() {
     print_status "Verifying deployment..."
@@ -321,6 +356,19 @@ stop_containers() {
     print_status "Stopping CI Analysis Agent containers..."
     
     # Stop containers
+
+    if podman container exists "$LOKI_MCP_CONTAINER" 2>/dev/null; then
+        if podman ps | grep -q "$LOKI_MCP_CONTAINER"; then
+            print_status "Stopping Loki MCP container..."
+            podman stop "$LOKI_MCP_CONTAINER"
+            print_success "Loki MCP container stopped"
+        else
+            print_warning "Loki MCP container is not running"
+        fi
+    else
+        print_warning "CI Analysis Agent container does not exist"
+    fi
+
     if podman container exists "$AGENT_CONTAINER" 2>/dev/null; then
         if podman ps | grep -q "$AGENT_CONTAINER"; then
             print_status "Stopping CI Analysis Agent container..."
@@ -351,10 +399,10 @@ stop_containers() {
     echo "================================================================="
     echo ""
     echo "📊 Container Status:"
-    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER" || echo "  No containers found"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|$LOKI_MCP_CONTAINER" || echo "  No containers found"
     echo ""
     echo "🎯 Quick Commands:"
-    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER"
+    echo "  • Start containers:    podman start $OLLAMA_CONTAINER $AGENT_CONTAINER $LOKI_MCP_CONTAINER"
     echo "  • Clean up all:        $0 --clean-all"
     echo "  • Remove volumes:      $0 --remove-volumes"
     echo "  • Remove images:       $0 --remove-images"
@@ -373,10 +421,15 @@ clean_all() {
     
     # Stop containers first
     print_status "Stopping containers..."
-    podman stop "$OLLAMA_CONTAINER" "$AGENT_CONTAINER" 2>/dev/null || true
+    podman stop "$LOKI_MCP_CONTAINER" "$AGENT_CONTAINER" "$OLLAMA_CONTAINER" 2>/dev/null || true
     
     # Remove containers
     print_status "Removing containers..."
+    if podman container exists "$LOKI_MCP_CONTAINER" 2>/dev/null; then
+        podman rm -f "$LOKI_MCP_CONTAINER" 2>/dev/null || true
+        print_success "Removed Loki MCP container"
+    fi
+
     if podman container exists "$AGENT_CONTAINER" 2>/dev/null; then
         podman rm -f "$AGENT_CONTAINER" 2>/dev/null || true
         print_success "Removed CI Analysis Agent container"
@@ -437,6 +490,12 @@ clean_all() {
             print_success "Removed image: ollama/ollama:latest"
         fi
         
+        # Remove Loki MCP image
+        if podman image exists "loki-mcp:latest" 2>/dev/null; then
+            podman rmi -f "loki-mcp:latest" 2>/dev/null || true
+            print_success "Removed image: loki-mcp:latest"
+        fi
+        
         # Remove any other related images
         for image in $(podman images --format "{{.Repository}}:{{.Tag}}" 2>/dev/null | grep -E "ci-analysis|ollama" || true); do
             if [ -n "$image" ] && [ "$image" != "ollama/ollama:latest" ] && [ "$image" != "ci-analysis-agent:latest" ]; then
@@ -454,13 +513,13 @@ clean_all() {
     echo "📊 Remaining Resources:"
     echo ""
     echo "Containers:"
-    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|ci-analysis" || echo "  No related containers found"
+    podman ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "$OLLAMA_CONTAINER|$AGENT_CONTAINER|$LOKI_MCP_CONTAINER|ci-analysis" || echo "  No related containers found"
     echo ""
     echo "Volumes:"
     podman volume ls --format "table {{.Name}}\t{{.Driver}}" | grep -E "ollama|ci-analysis" || echo "  No related volumes found"
     echo ""
     echo "Images:"
-    podman images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "ollama|ci-analysis" || echo "  No related images found"
+    podman images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep -E "ollama|ci-analysis|loki-mcp" || echo "  No related images found"
     echo ""
     echo "🎯 Next Steps:"
     echo "  • Fresh deployment:    $0"
@@ -715,7 +774,9 @@ main() {
     else
         print_status "Skipping Ollama setup (using remote vLLM)"
     fi
-    
+
+    build_loki_mcp
+    start_loki_mcp
     start_agent
     verify_deployment
     show_status "$gpu_type"
