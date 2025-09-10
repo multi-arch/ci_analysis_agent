@@ -11,21 +11,26 @@ except ImportError:
 # Global DrainExtractor instance
 _drain_extractor = DrainExtractor(verbose=False, context=False, max_clusters=1000)
 
-def get_must_gather(job_name: str, build_id: str, test_name: str, target_folder: str) -> dict:
-    """Retrieves the must-gather archive for a specified job.
+
+def get_must_gather(job_name: str, build_id: str, test_name: str, target_folder: str = "/tmp/must_gather_analysis") -> dict:
+    """Downloads and extracts must-gather archive from a failed CI job for analysis.
+
+    This tool retrieves the must-gather diagnostic data collected during a CI job failure.
+    Must-gather archives contain cluster state information like pod logs, events, and resource definitions
+    that are essential for root cause analysis of OpenShift cluster issues.
 
     Args:
-        job_name: The name of the job
-        build_id: The build ID for which to get install logs
-        test_name: The name of the test for which to get install logs
+        job_name (str): The name of the Prow job that failed
+        build_id (str): The specific build ID from the job run
+        test_name (str): The test component name that generated must-gather (e.g., 'ocp-e2e-aws-ovn-sno-multi-a-a')
+        target_folder (str, optional): Local directory to download and extract the archive. Defaults to '/tmp/must_gather_analysis'.
+    
     Returns:
-        dict: A dictionary containing the must-gather information.
-              Includes a 'status' key ('success' or 'error').
-              If 'success', includes a 'path' key pointing to must-gather logs.
-              If 'error', includes an 'error_message' key.
+        dict: A dictionary containing the must-gather retrieval result.
+              - If successful: {'status': 'success', 'path': '/path/to/extracted/files'}
+              - If failed: {'status': 'error', 'error_message': 'description of the error'}
     """
    
-
     gsURL = "gs://test-platform-results/logs/"+job_name+"/"+build_id+"/artifacts/"+test_name+"/gather-must-gather/artifacts"
     destination_folder = target_folder+"/"+job_name+"/"+build_id+"/"+test_name
     try:
@@ -48,7 +53,6 @@ def get_must_gather(job_name: str, build_id: str, test_name: str, target_folder:
     else:
          return {"status": "error", "error_message": f"must-gather.tar not found in {destination_folder}"}
     return  {"status": "success", "path": destination_folder}
-    
 
 
 def download_from_gs(gs_url, destination_folder):
@@ -93,23 +97,34 @@ def download_from_gs(gs_url, destination_folder):
         print(f"Error downloading from GCS: {e}")
 
 
+def read_drained_file(path: str, max_lines: Optional[int] = None) -> dict:
+    """Analyze log file using Drain algorithm to extract structured patterns from unstructured logs.
+    
+    This tool applies the Drain log parsing algorithm to identify common patterns in log files
+    by clustering similar log entries together. This is especially useful for analyzing 
+    repetitive error messages, warnings, and events in OpenShift cluster logs.
 
-        
-
-
-def read_drained_file(path: str) -> dict:
-    """Read contents of a file
     Args:
-        path: The path to the file to read
+        path (str): The absolute path to the log file to analyze
+        max_lines (int, optional): Maximum number of lines to read from the file. 
+                                 If None, reads the entire file. Defaults to None.
+    
     Returns:
-        dict: A dictionary containing the file contents.
-              Includes a 'status' key ('success' or 'error').
-              If 'success', includes a 'patterns' key pointing to a list of patterns found in the file.
-              If 'error', includes an 'error_message' key.
+        dict: A dictionary containing the Drain analysis results.
+              - If successful: {'status': 'success', 'patterns': [{'line_number': int, 'chunk': str, 'chunk_length': int}]}  
+              - If failed: {'status': 'error', 'error_message': 'description of the error'}
     """
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            content= f.read()
+            if max_lines is not None:
+                lines = []
+                for i, line in enumerate(f):
+                    if i >= max_lines:
+                        break
+                    lines.append(line)
+                content = ''.join(lines)
+            else:
+                content = f.read()
             patterns = _drain_extractor(content)
     
     # Convert patterns to a more structured format
@@ -124,73 +139,170 @@ def read_drained_file(path: str) -> dict:
         return {"status": "error", "error_message": f"Error reading file {path}: {e}"}
     return {"status": "success", "patterns": pattern_results}
 
-    
 
-def list_directory( path: str) -> dict:
-    """List contents of a directory
+def list_directory(path: str, show_hidden: bool = False, sort_by: str = "name") -> dict:
+    """Lists files and directories in a must-gather archive or local filesystem.
+    
+    This tool helps navigate the directory structure of extracted must-gather archives,
+    which typically contain organized diagnostic data like namespaces, cluster-scoped-resources,
+    host_service_logs, and other OpenShift cluster information.
+
     Args:
-        path: The path to list the contents of
+        path (str): The directory path to list contents of
+        show_hidden (bool, optional): Whether to include hidden files/directories (starting with '.'). 
+                                     Defaults to False.
+        sort_by (str, optional): How to sort the directory listing. Options: 'name', 'size', 'modified'. 
+                                Defaults to 'name'.
+    
     Returns:
-        dict: A dictionary containing the directory contents.
-              Includes a 'status' key ('success' or 'error').
-              If 'success', includes an 'entries' key pointing to a list of directory entries.
-              If 'error', includes an 'error_message' key.
+        dict: A dictionary containing the directory listing results.
+              - If successful: {'status': 'success', 'entries': ['[DIR] dirname', '[FILE] filename', ...]}
+              - If failed: {'status': 'error', 'error_message': 'description of the error'}
     """
     try:
         entries = []
         with os.scandir(path) as it:
+            dir_entries = []
             for entry in it:
+                # Skip hidden files unless requested
+                if not show_hidden and entry.name.startswith('.'):
+                    continue
+                    
                 prefix = "[DIR]" if entry.is_dir() else "[FILE]"
-                entries.append(f"{prefix} {entry.name}")
+                
+                # Get additional info for sorting
+                try:
+                    stat_info = entry.stat()
+                    size = stat_info.st_size
+                    modified = stat_info.st_mtime
+                except OSError:
+                    size = 0
+                    modified = 0
+                
+                dir_entries.append({
+                    'name': entry.name,
+                    'prefix': prefix,
+                    'size': size,
+                    'modified': modified,
+                    'is_dir': entry.is_dir()
+                })
+        
+        # Sort entries based on sort_by parameter
+        if sort_by == "size":
+            dir_entries.sort(key=lambda x: x['size'], reverse=True)
+        elif sort_by == "modified":
+            dir_entries.sort(key=lambda x: x['modified'], reverse=True)
+        else:  # default to name
+            dir_entries.sort(key=lambda x: x['name'].lower())
+        
+        # Format output
+        for entry in dir_entries:
+            entries.append(f"{entry['prefix']} {entry['name']}")
+            
         return {"status": "success", "entries": entries}
     except Exception as e:
         return {"status": "error", "error_message": f"Error listing directory {path}: {e}"}
 
-    
 
-def get_file_info(path: str) -> dict:
-    """Get file/directory metadata
+def get_file_info(path: str, include_content_preview: bool = False) -> dict:
+    """Retrieves detailed metadata about files or directories in must-gather archives.
+    
+    This tool provides comprehensive information about files, including size, timestamps,
+    and permissions. For log files, it can also provide a content preview to help determine
+    if the file contains relevant diagnostic information.
+
     Args:
-        path: The path to get the file/directory metadata for
+        path (str): The file or directory path to get metadata for
+        include_content_preview (bool, optional): For text files smaller than 10KB, include 
+                                                first 10 lines as preview. Defaults to False.
+    
     Returns:
-        dict: A dictionary containing the file/directory metadata.
-              Includes a 'status' key ('success' or 'error').
-              If 'success', includes an 'info' key pointing to a dictionary containing the file/directory metadata.
-              If 'error', includes an 'error_message' key.
+        dict: A dictionary containing the file metadata.
+              - If successful: {'status': 'success', 'info': {size, created, modified, accessed, is_directory, is_file, permissions, [content_preview]}}
+              - If failed: {'status': 'error', 'error_message': 'description of the error'}
     """
     try:
         stats = os.stat(path)
-        return  {"status": "success", "info": {
+        info = {
             "size": stats.st_size,
-            "created": datetime.fromtimestamp(stats.st_ctime),
-            "modified": datetime.fromtimestamp(stats.st_mtime),
-            "accessed": datetime.fromtimestamp(stats.st_atime),
+            "created": datetime.fromtimestamp(stats.st_ctime).isoformat(),
+            "modified": datetime.fromtimestamp(stats.st_mtime).isoformat(),
+            "accessed": datetime.fromtimestamp(stats.st_atime).isoformat(),
             "is_directory": os.path.isdir(path),
             "is_file": os.path.isfile(path),
             "permissions": oct(stats.st_mode)[-3:]
-        }}
+        }
+        
+        # Add content preview for small text files if requested
+        if include_content_preview and os.path.isfile(path) and stats.st_size < 10240:  # 10KB limit
+            try:
+                with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                    lines = []
+                    for i, line in enumerate(f):
+                        if i >= 10:  # First 10 lines only
+                            break
+                        lines.append(line.rstrip())
+                    if lines:
+                        info["content_preview"] = lines
+            except (UnicodeDecodeError, IOError):
+                # Skip preview for binary or unreadable files
+                pass
+        
+        return {"status": "success", "info": info}
     except Exception as e:
         return {"status": "error", "error_message": f"Error getting file info for {path}: {e}"}
 
-def search_files(start_path: str, pattern: str) -> dict:
-    """Search for files matching a pattern
+def search_files(start_path: str, pattern: str, max_results: int = 100, search_content: bool = False) -> dict:
+    """Search for files in must-gather archives by filename pattern or content.
+    
+    This tool helps locate specific diagnostic files within large must-gather archives.
+    It's particularly useful for finding log files, configuration files, or resources
+    related to specific namespaces, pods, or error conditions.
+
     Args:
-        start_path: The path to start searching from
-        pattern: The pattern to search for
+        start_path (str): The directory path to start searching from (typically the must-gather root)
+        pattern (str): The search pattern to match against filenames (case-insensitive substring match)
+        max_results (int, optional): Maximum number of matching files to return. Defaults to 100.
+        search_content (bool, optional): Whether to also search within file contents (slower). 
+                                       Only applies to text files under 1MB. Defaults to False.
+    
     Returns:
         dict: A dictionary containing the search results.
-              Includes a 'status' key ('success' or 'error').
-              If 'success', includes a 'results' key pointing to a list of matching files.
-              If 'error', includes an 'error_message' key.
+              - If successful: {'status': 'success', 'results': ['path1', 'path2', ...]}
+              - If failed: {'status': 'error', 'error_message': 'description of the error'}
     """
     results = []
     
     try:
         for root, _, files in os.walk(start_path):
             for name in files:
+                full_path = os.path.join(root, name)
+                matched = False
+                
+                # Check filename match
                 if pattern.lower() in name.lower():
-                    full_path = os.path.join(root, name)
+                    matched = True
+                
+                # Check content match if requested
+                elif search_content:
+                    try:
+                        file_size = os.path.getsize(full_path)
+                        if file_size < 1048576:  # 1MB limit for content search
+                            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                content = f.read()
+                                if pattern.lower() in content.lower():
+                                    matched = True
+                    except (IOError, UnicodeDecodeError):
+                        continue  # Skip files that can't be read
+                
+                if matched:
                     results.append(full_path)
+                    if len(results) >= max_results:
+                        break
+            
+            if len(results) >= max_results:
+                break
+                
         return {"status": "success", "results": results}
     except Exception as e:
         return {"status": "error", "error_message": f"Error searching files from {start_path}: {e}"}
