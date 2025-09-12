@@ -317,6 +317,7 @@ def get_install_logs_tool(job_name: str, build_id: str, test_name: str):
     return run_async_in_thread(get_install_logs_async(job_name, build_id, test_name))
 
 installation_analyst_agent = Agent(
+    description="Analyzes installation logs and provides detailed analysis.",
     model=LiteLlm(model=MODEL),
     name="installation_analyst_agent",
     instruction=prompt.INSTALLATION_SPECIALIST_PROMPT,

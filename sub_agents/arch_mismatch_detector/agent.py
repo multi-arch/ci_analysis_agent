@@ -78,7 +78,7 @@ arch_mismatch_detector_agent = Agent(
     # model="gemini-2.0-flash",
     name="arch_mismatch_detector_agent",
     instruction=prompt.ARCH_MISMATCH_DETECTOR_PROMPT,
-    output_key="installation_analysis_output",
+    output_key="arch_mismatch_detector_output",
     tools=[
         get_job_start_and_end_time_tool,
         MCPToolset(

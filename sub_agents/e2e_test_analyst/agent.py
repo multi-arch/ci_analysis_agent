@@ -329,6 +329,7 @@ def get_junit_results_tool(job_name: str, build_id: str, test_name: str):
 
 e2e_test_analyst_agent = Agent(
     model=LiteLlm(model=MODEL),
+    description="Analyzes e2e test logs and provides detailed analysis.",
     name="e2e_test_analyst_agent",
     instruction=prompt.E2E_TEST_SPECIALIST_PROMPT,
     output_key="e2e_test_analysis_output",

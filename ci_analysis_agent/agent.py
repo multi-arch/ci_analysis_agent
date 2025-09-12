@@ -22,9 +22,16 @@ from . import prompt
 from sub_agents.installation_analyst import installation_analyst_agent
 from sub_agents.e2e_test_analyst import e2e_test_analyst_agent
 from sub_agents.mustgather_analyst import mustgather_analyst_agent
-
+from sub_agents.arch_mismatch_detector import arch_mismatch_detector_agent
 import os
 MODEL = os.environ.get("MODEL", "ollama_chat/qwen3:4b")
+
+def get_job_name(url: str) -> str:
+    return url.split("/")[-2]
+
+def get_build_id(url: str) -> str:
+    return url.split("/")[-1]
+
 ci_analysis_advisor = LlmAgent(
     name="ci_analysis_advisor",
     model=LiteLlm(model=MODEL),
@@ -34,7 +41,10 @@ ci_analysis_advisor = LlmAgent(
     instruction=prompt.CI_ANALYSIS_COORDINATOR_PROMPT,
     output_key="ci_analysis_advisor_output",
     tools=[
+        get_job_name,
+        get_build_id,
         AgentTool(agent=installation_analyst_agent),
+        AgentTool(agent=arch_mismatch_detector_agent),
         AgentTool(agent=e2e_test_analyst_agent),
         AgentTool(agent=mustgather_analyst_agent),
     ],
