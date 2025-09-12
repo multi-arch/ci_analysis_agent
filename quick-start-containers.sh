@@ -289,30 +289,24 @@ start_agent() {
 
 build_loki_mcp() {
     print_status "Building Loki MCP container..."
-    git clone https://github.com/grafana/loki-mcp.git
+    rm -rf loki-mcp
+    git clone https://github.com/sherine-k/loki-mcp.git
+#    also make sure you checkout branch datasource which has the mcp tool grafana_loki_query
+    cd loki-mcp
+    git checkout datasource
+    cd ..
     podman build -t loki-mcp:latest loki-mcp
     print_success "Loki MCP container built"
 }
 
 start_loki_mcp() {
     print_status "Starting Loki MCP container..."
-    podman run -d --name "$LOKI_MCP_CONTAINER" -e MCP_TRANSPORT=http=stream  -p "$MCP_SERVER_PORT:8080" loki-mcp:latest
+    podman run -d --name "$LOKI_MCP_CONTAINER" -e "LOKI_TOKEN=$LOKI_TOKEN" -e MCP_TRANSPORT=http=stream  -p "$MCP_SERVER_PORT:8080" loki-mcp:latest
     print_success "Loki MCP container started"
     # Wait for MCP server to be ready
     print_status "Waiting for MCP server to be ready..."
-    sleep 5
+    sleep 2
 
-    # Check if MCP server is responding
-    for i in {1..15}; do
-        if curl -s -f "http://localhost:$MCP_SERVER_PORT/" >/dev/null 2>&1; then
-            print_success "Loki MCP server is ready"
-            break
-        fi
-        if [ $i -eq 15 ]; then
-            print_warning "Loki MCP server may not be fully ready yet"
-        fi
-        sleep 2
-    done
 }
 
 # Function to verify deployment
