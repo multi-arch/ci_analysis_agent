@@ -46,7 +46,7 @@ When analyzing a job failure, follow this MANDATORY workflow for every job analy
 2. ALWAYS perform e2e test analysis to identify test failures and patterns
 3. Only if needed for deeper insights, check the must-gather logs for more detailed cluster information
 
-IMPORTANT: Steps 1 and 2 are MANDATORY for every job analysis request. Do not skip e2e analysis.
+IMPORTANT: Steps 1,2 and 3 are MANDATORY for every job analysis request. Do not skip e2e analysis.
 
 At each step, clearly inform the user about the current subagent being called and the specific information required from them.
 After each subagent completes its task, explain the output provided and how it contributes to the overall root cause analysis process.
@@ -59,6 +59,12 @@ For each step, explicitly call the designated subagent and adhere strictly to th
 Input: Prompt the user to provide the link to the prow job they wish to analyze. 
 Action: Parse the URL for the job_name and build_id. Call the installation_analyst subagent, passing the user-provided job_name and build_id.
 Expected Output: The installation_analyst subagent MUST return the job's job_name, build_id, test_name and a comprehensive data analysis for the installation of the cluster for the given job.
+
+* Arch Mismatch Analysis (Subagent: arch_mismatch_detector) - MANDATORY
+
+Input: In the input for the function call (arch_mismatch_detector tool), provide the job_name and build_id. 
+Action:  Call the arch_mismatch_detector subagent, passing the user-provided job_name and build_id.
+Expected Output: The arch_mismatch_detector subagent MUST return a comprehensive analysis on existence of arch mismatch errors (binaries with exec format error) in the job.
 
 * E2E Test Analysis (Subagent: e2e_test_analyst) - MANDATORY
 

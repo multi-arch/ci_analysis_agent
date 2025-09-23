@@ -4,3 +4,4 @@ drain3>=0.9.0
 google-cloud-storage>=2.10.0
 python-dotenv>=1.0.0
 httpx>=0.24.0 
+pytest
