@@ -174,8 +174,17 @@ async def get_install_logs_async(job_name: str, build_id: str, test_name: str) -
     """Get installation logs from build-log.txt in installation directories."""
     # List of possible installation directory patterns
     install_dirs = [
+        # IPI (Installer-Provisioned Infrastructure) patterns
+        "ipi-install-powervs-install",
+        "ipi-install-libvirt",
+        "ipi-install-libvirt-install",
         "ipi-install-install",
-        "ipi-install-install-stableinitial"
+        "ipi-install-install-stableinitial",
+        # UPI (User-Provisioned Infrastructure) patterns  
+        "upi-install-libvirt",
+        "upi-install-libvirt-install",
+        "upi-install-install",
+        "upi-install-install-stableinitial",
     ]
     base_url = f"{GCS_URL}/{job_name}/{build_id}"
     # Construct the base artifacts URL
@@ -268,30 +277,75 @@ async def get_install_logs_async(job_name: str, build_id: str, test_name: str) -
             except Exception as e:
                 continue  # Try next directory pattern
         
-        # If no logs found, return error message with helpful details
-        return f"""❌ INSTALLATION ANALYSIS FAILED
+        # Analyze job type to provide better guidance
+        job_analysis = analyze_job_type(job_name)
+        manual_check_url = f"https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs/{job_name}/{build_id}/artifacts/{test_name}/"
         
-Could not find installation logs for job: {job_name}
-Build ID: {build_id}
+        return f"""❌ **INSTALLATION ANALYSIS RESULTS**
 
-🔍 DEBUGGING INFO:
-- test_name: {test_name}
-- Base URL: {base_url}
-- Tried directories: {', '.join(install_dirs)}
+**Job Details:**
+- Job Name: `{job_name}`
+- Build ID: `{build_id}`
+- Test Name: `{test_name}`
+- **Job Type**: {job_analysis['type']}
 
-🔗 Manual check: {base_url}/
+**Analysis:**
+{job_analysis['explanation']}
 
-⚠️ POSSIBLE CAUSES:
-1. Build ID might be invalid or logs not yet available
-2. Job might not have installation logs (e.g., upgrade-only jobs)
-3. Directory structure might be different for this job type
-4. Logs might be in a different location
+**Searched Directories:**
+{chr(10).join([f"- {dir}" for dir in install_dirs])}
 
-💡 SUGGESTIONS:
-1. Verify the Prow job URL is correct
-2. Check if the job has completed successfully
-3. Try browsing the base URL manually to see available directories
-4. Use a different job that includes installation steps"""
+**Manual Check:** [View available artifacts]({manual_check_url})
+
+**Recommendations:**
+{job_analysis['recommendations']}
+
+**Next Steps:**
+- For E2E test jobs: Use the e2e_test_analyst agent for test failure analysis
+- For non-installation jobs: Skip installation analysis and focus on test results
+- For installation jobs: Verify the job completed and check alternative directories"""
+
+def analyze_job_type(job_name: str) -> Dict[str, str]:
+    """Analyze job type to provide better guidance when installation logs aren't found."""
+    job_type_info = {
+        "type": "Unknown",
+        "explanation": "Job type could not be determined.",
+        "recommendations": "1. Check if this job actually performs installation\n2. Try manual inspection of the artifacts directory"
+    }
+    
+    # E2E test jobs
+    if "e2e" in job_name:
+        job_type_info.update({
+            "type": "E2E Test Job",
+            "explanation": "This appears to be an end-to-end test job that may run tests on pre-existing clusters rather than performing fresh installations.",
+            "recommendations": "1. Consider using the e2e_test_analyst agent instead\n2. This job may not have traditional installation logs\n3. Check if cluster setup logs exist in alternative directories"
+        })
+    
+    # Upgrade jobs  
+    elif "upgrade" in job_name:
+        job_type_info.update({
+            "type": "Upgrade Job",
+            "explanation": "This is an upgrade job that starts with an existing cluster and upgrades it.",
+            "recommendations": "1. Look for upgrade logs instead of installation logs\n2. Check directories like 'upgrade' or 'openshift-upgrade'\n3. Consider analyzing the upgrade process rather than installation"
+        })
+    
+    # Libvirt/UPI jobs
+    elif "libvirt" in job_name or "upi" in job_name:
+        job_type_info.update({
+            "type": "UPI/Libvirt Job",  
+            "explanation": "This job uses User-Provisioned Infrastructure (UPI) or libvirt, which may have different log directory structures than IPI jobs.",
+            "recommendations": "1. Look for UPI-specific directories\n2. Check for libvirt, baremetal, or setup directories\n3. Installation process may be in cluster-setup or similar directories"
+        })
+    
+    # IPI jobs (traditional)
+    elif "ipi" in job_name:
+        job_type_info.update({
+            "type": "IPI Installation Job",
+            "explanation": "This should be a standard Installer-Provisioned Infrastructure job with traditional installation logs.",
+            "recommendations": "1. Verify the build ID is correct and job has completed\n2. Check if logs are in alternative ipi directories\n3. This job should have installation logs - may be a temporary issue"
+        })
+    
+    return job_type_info
 
 def run_async_in_thread(coro):
     """Run async function in a thread to avoid event loop conflicts."""
@@ -309,12 +363,80 @@ def run_async_in_thread(coro):
         return future.result()
 
 def get_job_metadata_tool(job_name: str, build_id: str):
-    """Get metadata and status for a specific Prow job name and build ID."""
+    """Retrieves comprehensive metadata and status information for a specific Prow CI job.
+    
+    This tool fetches the prowjob.json metadata which contains essential information about
+    the CI job execution, including current status, build configuration, test targets,
+    and execution parameters. This is typically the first tool to use when analyzing a failed CI job.
+
+    Args:
+        job_name (str): The name of the Prow job 
+        build_id (str): The specific build ID for the job run
+    
+    Returns:
+        dict: Job metadata including status, build_id, job_name, test_name, and error details if applicable
+    """
     return run_async_in_thread(get_job_metadata_async(job_name, build_id))
 
-def get_install_logs_tool(job_name: str, build_id: str, test_name: str):
-    """Get installation logs from build-log.txt in installation directories with detailed analysis."""
-    return run_async_in_thread(get_install_logs_async(job_name, build_id, test_name))
+def get_install_logs_tool(job_name: str, build_id: str, test_name: str, include_full_log: bool = True, focus_on_errors: bool = False):
+    """Analyzes OpenShift cluster installation logs with comprehensive configuration and failure analysis.
+    
+    This tool retrieves and analyzes installation logs from build-log.txt files, extracting
+    critical information including openshift-install binary version, release image details,
+    cluster configuration, installation duration, and detailed failure analysis if installation failed.
+
+    Args:
+        job_name (str): The name of the Prow job containing installation steps
+        build_id (str): The specific build ID for the job run
+        test_name (str): The test component name that performed installation
+        include_full_log (bool, optional): Whether to include complete log content in response.
+                                         If False, provides only summary and key sections. Defaults to True.
+        focus_on_errors (bool, optional): Whether to prioritize error messages and failure patterns.
+                                        If True, extracts and highlights error conditions. Defaults to False.
+    
+    Returns:
+        str: Comprehensive installation analysis including installer info, cluster config, 
+             instance types, installation results, and log content with error highlighting if requested
+    """
+    result = run_async_in_thread(get_install_logs_async(job_name, build_id, test_name))
+    
+    # Process result based on options
+    if isinstance(result, str):
+        # If include_full_log is False, remove the full log section to reduce response size
+        if not include_full_log:
+            lines = result.split('\n')
+            filtered_lines = []
+            skip_full_log = False
+            
+            for line in lines:
+                if line.startswith('📋 FULL INSTALLATION LOG:'):
+                    skip_full_log = True
+                    continue
+                if not skip_full_log:
+                    filtered_lines.append(line)
+            
+            result = '\n'.join(filtered_lines)
+        
+        # If focus_on_errors is True, add error analysis guidance
+        if focus_on_errors and not result.startswith('❌'):
+            error_guidance = """
+🔍 ERROR ANALYSIS FOCUS:
+- Look for lines containing 'level=error', 'FATAL', 'failed', or 'Error:'
+- Check for timeout messages or resource provisioning failures
+- Examine AWS/cloud provider error codes and messages
+- Look for certificate, DNS, or networking related errors
+- Check for quota or permission issues
+- Review any stack traces or detailed error descriptions
+
+"""
+            # Insert guidance after the header but before the content
+            parts = result.split('\n\n', 1)
+            if len(parts) == 2:
+                result = parts[0] + '\n\n' + error_guidance + parts[1]
+            else:
+                result = error_guidance + result
+    
+    return result
 
 installation_analyst_agent = Agent(
     model=LiteLlm(model=MODEL),
