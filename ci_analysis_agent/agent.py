@@ -24,7 +24,9 @@ from sub_agents.e2e_test_analyst import e2e_test_analyst_agent
 from sub_agents.mustgather_analyst import mustgather_analyst_agent
 
 import os
-MODEL = os.environ.get("MODEL", "ollama_chat/qwen3:4b")
+MODEL = os.environ.get("MODEL", "ollama_chat/qwen3:1.7b")
+
+# Main coordinator agent with all three individual agent tools
 ci_analysis_advisor = LlmAgent(
     name="ci_analysis_advisor",
     model=LiteLlm(model=MODEL),

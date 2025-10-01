@@ -1,20 +1,33 @@
 """Installation Analyst Agent for analyzing CI installation logs."""
 
-from google.adk import Agent
+import asyncio
+import concurrent.futures
+import os
+import re
+from typing import Any, Dict
+
+import httpx
+from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
+from pydantic import BaseModel, Field
+
+from ..common_drain import SimpleDrainExtractor
 from . import prompt
 
-import asyncio
-import httpx
-import threading
-import concurrent.futures
-import re
-import os
-from typing import Dict, Any, Optional
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
-MODEL = os.environ.get("MODEL", "qwen3:4b")
+MODEL = os.environ.get("MODEL", "qwen3:1.7b")
+
+
+class InstallationAnalystInput(BaseModel):
+    """Input schema for Installation Analyst Agent."""
+    job_name: str = Field(
+        description="The Prow job name extracted from the URL (e.g., 'periodic-ci-openshift-multiarch-master-nightly-4.21-ocp-e2e-ovn-remote-s2s-libvirt-ppc64le')"
+    )
+    build_id: str = Field(
+        description="The build ID extracted from the Prow job URL (e.g., '1964900126069624832')"
+    )
 
 def extract_installation_info(log_content: str) -> Dict[str, Any]:
     """Extract installation information from build-log.txt."""
@@ -267,14 +280,23 @@ async def get_install_logs_async(job_name: str, build_id: str, test_name: str) -
                     result += "--- Last 20 lines ---\n"
                     result += '\n'.join(lines[-20:]) + "\n\n"
                 
-                # Add full log content
-                result += f"📋 FULL INSTALLATION LOG:\n{log_content}"
+                # Add filtered log content using drain
+                try:
+                    config_path = f"{os.path.dirname(__file__)}/drain3.ini"
+                    drain_extractor = SimpleDrainExtractor(config_path, verbose=False, max_clusters=12)
+                    filtered_log = drain_extractor.filter_log(log_content, max_lines=100)
+                    result += f"📋 FILTERED INSTALLATION LOG (key patterns):\n{filtered_log}"
+                except Exception as e:
+                    # Fallback to truncated log if drain fails
+                    lines = log_content.split('\n')
+                    truncated_log = '\n'.join(lines[:50] + ['...(truncated)...'] + lines[-50:])
+                    result += f"📋 INSTALLATION LOG (truncated - drain failed: {str(e)}):\n{truncated_log}"
                 
                 return result
                 
             except httpx.HTTPError:
                 continue  # Try next directory pattern
-            except Exception as e:
+            except Exception:
                 continue  # Try next directory pattern
         
         # Analyze job type to provide better guidance
@@ -438,11 +460,12 @@ def get_install_logs_tool(job_name: str, build_id: str, test_name: str, include_
     
     return result
 
-installation_analyst_agent = Agent(
+installation_analyst_agent = LlmAgent(
     model=LiteLlm(model=MODEL),
-    name="installation_analyst_agent",
+    name="installation_analyst_agent", 
     instruction=prompt.INSTALLATION_SPECIALIST_PROMPT,
     output_key="installation_analysis_output",
+    input_schema=InstallationAnalystInput,
     tools=[
         get_job_metadata_tool,
         get_install_logs_tool,

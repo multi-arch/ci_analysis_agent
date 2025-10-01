@@ -1,8 +1,10 @@
 """E2E Test Analyst Agent for analyzing CI e2e test logs."""
 
-from google.adk import Agent
+from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
+from pydantic import BaseModel, Field
 from . import prompt
+from ..common_drain import SimpleDrainExtractor
 
 import asyncio
 import httpx
@@ -11,9 +13,20 @@ import re
 import os
 from typing import Dict, Any, Optional, List
 
+
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
-MODEL = os.environ.get("MODEL", "qwen3:4b")
+MODEL = os.environ.get("MODEL", "qwen3:1.7b")
+
+
+class E2ETestAnalystInput(BaseModel):
+    """Input schema for E2E Test Analyst Agent."""
+    job_name: str = Field(
+        description="The Prow job name extracted from the URL (e.g., 'periodic-ci-openshift-multiarch-master-nightly-4.21-ocp-e2e-ovn-remote-s2s-libvirt-ppc64le')"
+    )
+    build_id: str = Field(
+        description="The build ID extracted from the Prow job URL (e.g., '1964900126069624832')"
+    )
 
 # Prow tool functions for e2e test analysis
 async def get_job_metadata_async(job_name: str, build_id: str) -> Dict[str, Any]:
@@ -191,7 +204,7 @@ Build ID: {build_id}
             
             # Add commit information
             if commit_info["release_image"]:
-                result += f"🔍 OPENSHIFT-TESTS BINARY INFO:\n"
+                result += "🔍 OPENSHIFT-TESTS BINARY INFO:\n"
                 result += f"   Release Image: {commit_info['release_image']}\n"
                 if commit_info["commit_hash"]:
                     result += f"   Commit Hash: {commit_info['commit_hash']}\n"
@@ -231,8 +244,17 @@ Build ID: {build_id}
                 result += "--- Last 20 lines ---\n"
                 result += '\n'.join(lines[-20:]) + "\n\n"
             
-            # Add the full log content
-            result += f"📋 FULL E2E TEST LOG:\n{log_content}"
+            # Add filtered log content using drain
+            try:
+                config_path = f"{os.path.dirname(__file__)}/drain3.ini"
+                drain_extractor = SimpleDrainExtractor(config_path, verbose=False, max_clusters=12)
+                filtered_log = drain_extractor.filter_log(log_content, max_lines=100)
+                result += f"📋 FILTERED E2E TEST LOG (key patterns):\n{filtered_log}"
+            except Exception as e:
+                # Fallback to truncated log if drain fails
+                lines = log_content.split('\n')
+                truncated_log = '\n'.join(lines[:50] + ['...(truncated)...'] + lines[-50:])
+                result += f"📋 E2E TEST LOG (truncated - drain failed: {str(e)}):\n{truncated_log}"
             
             return result
             
@@ -405,14 +427,15 @@ def get_junit_results_tool(job_name: str, build_id: str, test_name: str, parse_x
     
     return result
 
-e2e_test_analyst_agent = Agent(
+e2e_test_analyst_agent = LlmAgent(
     model=LiteLlm(model=MODEL),
     name="e2e_test_analyst_agent",
     instruction=prompt.E2E_TEST_SPECIALIST_PROMPT,
     output_key="e2e_test_analysis_output",
+    input_schema=E2ETestAnalystInput,
     tools=[
         get_job_metadata_tool,
         get_e2e_test_logs_tool,
         get_junit_results_tool,
     ],
-) 
+)
