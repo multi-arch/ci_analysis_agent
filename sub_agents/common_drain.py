@@ -1,7 +1,8 @@
 """Common drain functionality for all sub-agents to filter log content."""
 
 import logging
-from typing import Tuple, Generator
+import re
+from typing import Tuple, Generator, List, Optional
 
 import drain3
 from drain3.template_miner_config import TemplateMinerConfig
@@ -60,14 +61,29 @@ def get_chunks(text: str) -> Generator[Tuple[int, str], None, None]:
 class SimpleDrainExtractor:
     """A simplified drain extractor for filtering log content in CI analysis agents."""
 
-    def __init__(self, config_file: str, verbose: bool = False, max_clusters: int = 8):
-        """Initialize with a specific drain3.ini config file."""
+    def __init__(self, config_file: str, verbose: bool = False, max_clusters: int = 8, 
+                 exclude_patterns: Optional[List[str]] = None):
+        """Initialize with a specific drain3.ini config file.
+        
+        Args:
+            config_file: Path to drain3.ini configuration
+            verbose: Enable verbose logging
+            max_clusters: Maximum number of clusters for drain
+            exclude_patterns: List of regex patterns to exclude lines from processing.
+                            Lines matching these patterns will be skipped entirely.
+        """
         config = TemplateMinerConfig()
         config.load(config_file)
         config.profiling_enabled = verbose
         config.drain_max_clusters = max_clusters
         self.miner = drain3.TemplateMiner(config=config)
         self.verbose = verbose
+        
+        # Compile exclusion patterns for efficiency
+        self.exclude_regex = None
+        if exclude_patterns:
+            combined_pattern = '|'.join(f'({pattern})' for pattern in exclude_patterns)
+            self.exclude_regex = re.compile(combined_pattern, re.IGNORECASE)
 
     def filter_log(self, log_content: str, max_lines: int = 100) -> str:
         """Filter log content to extract most important parts using drain clustering.
@@ -82,9 +98,13 @@ class SimpleDrainExtractor:
         if not log_content or not log_content.strip():
             return log_content
             
-        # First pass: create clusters by processing all chunks
+        # First pass: create clusters by processing all chunks (skip excluded lines)
         chunk_data = []
         for chunk_start, chunk in get_chunks(log_content):
+            # Skip chunks matching exclusion patterns
+            if self.exclude_regex and self.exclude_regex.search(chunk):
+                continue
+                
             self.miner.add_log_message(chunk)
             chunk_data.append((chunk_start, chunk))
         
@@ -93,7 +113,8 @@ class SimpleDrainExtractor:
             self.miner.drain.clusters, key=lambda it: it.size, reverse=True
         )
         
-        # Second pass: find representative lines for top clusters
+        # Second pass: find representative lines from ALL clusters
+        # Don't limit to top clusters - failures are often rare (small clusters)
         important_lines = []
         used_clusters = set()
         
@@ -103,22 +124,30 @@ class SimpleDrainExtractor:
                 
             # Match chunk to a cluster
             cluster = self.miner.match(chunk, "always")
-            if cluster and cluster not in used_clusters and cluster in sorted_clusters[:max_lines//2]:
+            # Include lines from ALL clusters (removed cluster rank filtering)
+            if cluster and cluster not in used_clusters:
                 important_lines.append(chunk.strip())
                 used_clusters.add(cluster)
         
         # If we don't have enough important lines, add some from beginning and end
+        # BUT respect exclusion patterns - don't add back excluded lines!
         if len(important_lines) < max_lines:
             lines = log_content.split('\n')
-            # Add first few lines if not already represented
+            # Add first few lines if not already represented AND not excluded
             for line in lines[:10]:
                 if line.strip() and len(important_lines) < max_lines:
+                    # Skip if matches exclusion pattern
+                    if self.exclude_regex and self.exclude_regex.search(line):
+                        continue
                     if not any(line.strip() in existing for existing in important_lines):
                         important_lines.append(line.strip())
             
-            # Add last few lines if not already represented  
+            # Add last few lines if not already represented AND not excluded
             for line in lines[-10:]:
                 if line.strip() and len(important_lines) < max_lines:
+                    # Skip if matches exclusion pattern
+                    if self.exclude_regex and self.exclude_regex.search(line):
+                        continue
                     if not any(line.strip() in existing for existing in important_lines):
                         important_lines.append(line.strip())
         
