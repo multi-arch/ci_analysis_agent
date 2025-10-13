@@ -17,7 +17,7 @@ from . import prompt
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
-MODEL = os.environ.get("MODEL", "qwen3:1.7b")
+MODEL = os.environ.get("MODEL", "qwen3:4b")
 
 
 class InstallationAnalystInput(BaseModel):
