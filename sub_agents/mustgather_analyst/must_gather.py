@@ -1,8 +1,10 @@
 import os
 import tarfile
 from datetime import datetime
+from typing import Optional
+
 from google.cloud import storage
-from typing import List, Dict, Any, Optional
+
 try:
     from .drain import DrainExtractor
 except ImportError:
@@ -95,7 +97,7 @@ def download_from_gs(gs_url, destination_folder):
 
     except Exception as e:
         print(f"Error downloading from GCS: {e}")
-
+        raise
 
 def read_drained_file(path: str, max_lines: Optional[int] = None) -> dict:
     """Analyze log file using Drain algorithm to extract structured patterns from unstructured logs.

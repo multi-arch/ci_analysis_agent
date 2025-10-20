@@ -1,14 +1,26 @@
-from google.adk import Agent
+from google.adk.agents import LlmAgent
 from . import prompt
 from google.adk.models.lite_llm import LiteLlm
+from pydantic import BaseModel, Field
 import os
 import requests
 from typing import Dict, Any
 from .must_gather import get_must_gather, list_directory, read_drained_file, get_file_info, search_files
 
+
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
 MODEL = os.environ.get("MODEL", "qwen3:4b")
+
+
+class MustGatherAnalystInput(BaseModel):
+    """Input schema for Must-Gather Analyst Agent."""
+    job_name: str = Field(
+        description="The Prow job name extracted from the URL (e.g., 'periodic-ci-openshift-multiarch-master-nightly-4.21-ocp-e2e-ovn-remote-s2s-libvirt-ppc64le')"
+    )
+    build_id: str = Field(
+        description="The build ID extracted from the Prow job URL (e.g., '1964900126069624832')"
+    )
 
 def get_job_metadata(job_name: str, build_id: str) -> Dict[str, Any]:
     """Get the metadata and status for a specific Prow job name and build id."""
@@ -58,11 +70,12 @@ def get_job_metadata_tool(job_name: str, build_id: str):
     """
     return get_job_metadata(job_name, build_id)
 
-mustgather_analyst_agent = Agent(
+mustgather_analyst_agent = LlmAgent(
     model=LiteLlm(model=MODEL),
     name="mustgather_analyst_agent",
     instruction=prompt.MUST_GATHER_SPECIALIST_PROMPT,
     output_key="must_gather_analysis_output",
+    input_schema=MustGatherAnalystInput,
     tools=[
         get_job_metadata_tool,
         get_must_gather,

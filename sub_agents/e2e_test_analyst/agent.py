@@ -1,19 +1,33 @@
 """E2E Test Analyst Agent for analyzing CI e2e test logs."""
 
-from google.adk import Agent
+from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
+from pydantic import BaseModel, Field
 from . import prompt
+from ..common_drain import SimpleDrainExtractor
 
 import asyncio
 import httpx
 import concurrent.futures
 import re
 import os
+import xml.etree.ElementTree as ET
 from typing import Dict, Any, Optional, List
+
 
 GCS_URL = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/test-platform-results/logs"
 
 MODEL = os.environ.get("MODEL", "qwen3:4b")
+
+
+class E2ETestAnalystInput(BaseModel):
+    """Input schema for E2E Test Analyst Agent."""
+    job_name: str = Field(
+        description="The Prow job name extracted from the URL (e.g., 'periodic-ci-openshift-multiarch-master-nightly-4.21-ocp-e2e-ovn-remote-s2s-libvirt-ppc64le')"
+    )
+    build_id: str = Field(
+        description="The build ID extracted from the Prow job URL (e.g., '1964900126069624832')"
+    )
 
 # Prow tool functions for e2e test analysis
 async def get_job_metadata_async(job_name: str, build_id: str) -> Dict[str, Any]:
@@ -158,29 +172,13 @@ async def get_e2e_test_logs_async(job_name: str, build_id: str, test_name: str) 
             
             # Check if we got HTML instead of log content
             if log_content.strip().startswith('<!doctype html>') or log_content.strip().startswith('<html'):
-                return f"""❌ E2E TEST ANALYSIS FAILED
-                
-Could not find e2e test logs for job: {job_name}
-Build ID: {build_id}
+                return f"""❌ E2E TEST LOGS NOT FOUND
 
-🔍 DEBUGGING INFO:
-- test_name: {test_name}
-- Base URL: {base_url}
-- Tried path: {e2e_test_path}
+Job: {job_name} (Build: {build_id})
+Path tried: {e2e_test_path}
 
-🔗 Manual check: {base_url}/
-
-⚠️ POSSIBLE CAUSES:
-1. Build ID might be invalid or logs not yet available
-2. Job might not have e2e test logs (e.g., installation-only jobs)
-3. Directory structure might be different for this job type
-4. Logs might be in a different location
-
-💡 SUGGESTIONS:
-1. Verify the Prow job URL is correct
-2. Check if the job has completed successfully
-3. Try browsing the base URL manually to see available directories
-4. Use a different job that includes e2e test steps"""
+This job may not include e2e tests or logs are in a different location.
+Manual check: {base_url}/"""
             
             # Extract commit and test information
             commit_info = extract_test_commit_info(log_content)
@@ -191,7 +189,7 @@ Build ID: {build_id}
             
             # Add commit information
             if commit_info["release_image"]:
-                result += f"🔍 OPENSHIFT-TESTS BINARY INFO:\n"
+                result += "🔍 OPENSHIFT-TESTS BINARY INFO:\n"
                 result += f"   Release Image: {commit_info['release_image']}\n"
                 if commit_info["commit_hash"]:
                     result += f"   Commit Hash: {commit_info['commit_hash']}\n"
@@ -209,12 +207,10 @@ Build ID: {build_id}
                     if test['duration'] != "unknown":
                         result += f"     Duration: {test['duration']}\n"
                     
-                    # Add source code links
+                    # Add single consolidated source code link
                     commit_hash = commit_info.get('commit_hash')
                     links = generate_source_code_links(test['test_name'], commit_hash)
-                    result += f"     🔗 Search in source: {links['search_url']}\n"
-                    result += f"     📁 Tests directory: {links['tests_directory']}\n"
-                    result += "\n"
+                    result += f"     🔗 Source: {links['search_url']}\n"
                 
                 if len(failed_tests) > 10:
                     result += f"   ... and {len(failed_tests) - 10} more failures\n\n"
@@ -231,36 +227,46 @@ Build ID: {build_id}
                 result += "--- Last 20 lines ---\n"
                 result += '\n'.join(lines[-20:]) + "\n\n"
             
-            # Add the full log content
-            result += f"📋 FULL E2E TEST LOG:\n{log_content}"
+            # Add filtered log content using drain - exclude passing/skipped tests
+            try:
+                config_path = f"{os.path.dirname(__file__)}/drain3.ini"
+                # Exclude patterns for non-failure content
+                # Be aggressive: exclude ALL routine operations, keep ONLY failures/errors/warnings
+                exclude_patterns = [
+                    r'^\s*PASS:',                    # Passing tests
+                    r'^\s*\[PASSED\]',               # Passed marker
+                    r'^\s*• \[PASSED\]',             # Ginkgo passed
+                    r'^\s*✓',                        # Checkmark for pass
+                    r'^\s*\[SKIPPED\]',              # Skipped tests
+                    r'^\s*• \[SKIPPED\]',            # Ginkgo skipped
+                    r'skip \[',                       # Skip marker
+                    r'Skipping',                      # Skipping marker
+                    r'passed: .*',                    # Explicit pass
+                    r'skipped: .*',                   # Explicit skip
+                    r'started: .*',                   # Test start notifications
+                    r'level=info(?!.*(fail|error|timeout|unhealthy|unable|denied|refused|fatal|panic))',
+                    r'^I\d{4} \d{2}:\d{2}:\d{2}\.\d+ \d+ (?!.*(fail|error|fatal))',
+                ]
+                drain_extractor = SimpleDrainExtractor(config_path, verbose=False, max_clusters=12, 
+                                                      exclude_patterns=exclude_patterns)
+                filtered_log = drain_extractor.filter_log(log_content, max_lines=75)
+                result += f"📋 FILTERED E2E TEST LOG (failure-focused):\n{filtered_log}"
+            except Exception as e:
+                # Fallback to truncated log if drain fails
+                lines = log_content.split('\n')
+                truncated_log = '\n'.join(lines[:50] + ['...(truncated)...'] + lines[-50:])
+                result += f"📋 E2E TEST LOG (truncated - drain failed: {str(e)}):\n{truncated_log}"
             
             return result
             
         except httpx.HTTPError as e:
-            return f"""❌ E2E TEST ANALYSIS FAILED
-            
-Could not find e2e test logs for job: {job_name}
-Build ID: {build_id}
+            return f"""❌ E2E TEST LOGS NOT FOUND
 
-🔍 DEBUGGING INFO:
-- test_name: {test_name}
-- Base URL: {base_url}
-- Tried path: {e2e_test_path}
-- HTTP Error: {str(e)}
+Job: {job_name} (Build: {build_id})
+Path tried: {e2e_test_path}
+Error: {str(e)}
 
-🔗 Manual check: {base_url}/
-
-⚠️ POSSIBLE CAUSES:
-1. Build ID might be invalid or logs not yet available
-2. Job might not have e2e test logs (e.g., installation-only jobs)
-3. Directory structure might be different for this job type
-4. Logs might be in a different location
-
-💡 SUGGESTIONS:
-1. Verify the Prow job URL is correct
-2. Check if the job has completed successfully
-3. Try browsing the base URL manually to see available directories
-4. Use a different job that includes e2e test steps"""
+Manual check: {base_url}/"""
         except Exception as e:
             return f"❌ E2E TEST ANALYSIS ERROR: {str(e)}"
 
@@ -302,6 +308,81 @@ async def get_junit_results_async(job_name: str, build_id: str, test_name: str) 
         except Exception as e:
             return f"Error fetching JUnit results: {str(e)}"
 
+def parse_junit_xml_failures(xml_content: str) -> Dict[str, Any]:
+    """Parse JUnit XML and extract only failed/errored tests.
+    
+    Args:
+        xml_content: Raw JUnit XML content
+        
+    Returns:
+        dict with summary stats and list of failed tests
+    """
+    try:
+        root = ET.fromstring(xml_content)
+        
+        # Handle both <testsuite> root and <testsuites> wrapper
+        if root.tag == 'testsuites':
+            testsuites = root.findall('testsuite')
+        else:
+            testsuites = [root]
+        
+        total_tests = 0
+        total_failures = 0
+        total_errors = 0
+        total_skipped = 0
+        failed_tests = []
+        
+        for testsuite in testsuites:
+            # Get suite-level stats
+            suite_name = testsuite.get('name', 'unknown')
+            total_tests += int(testsuite.get('tests', 0))
+            total_failures += int(testsuite.get('failures', 0))
+            total_errors += int(testsuite.get('errors', 0))
+            total_skipped += int(testsuite.get('skipped', 0))
+            
+            # Find all testcases with failures or errors
+            for testcase in testsuite.findall('testcase'):
+                failure = testcase.find('failure')
+                error = testcase.find('error')
+                
+                if failure is not None or error is not None:
+                    test_info = {
+                        'name': testcase.get('name', 'unknown'),
+                        'time': testcase.get('time', '0'),
+                        'classname': testcase.get('classname', ''),
+                    }
+                    
+                    if failure is not None:
+                        test_info['type'] = 'failure'
+                        test_info['message'] = failure.get('message', '')
+                        test_info['details'] = (failure.text or '').strip()[:500]  # Limit details
+                    elif error is not None:
+                        test_info['type'] = 'error'
+                        test_info['message'] = error.get('message', '')
+                        test_info['details'] = (error.text or '').strip()[:500]
+                    
+                    failed_tests.append(test_info)
+        
+        return {
+            'success': True,
+            'total_tests': total_tests,
+            'total_failures': total_failures,
+            'total_errors': total_errors,
+            'total_skipped': total_skipped,
+            'failed_tests': failed_tests
+        }
+        
+    except ET.ParseError as e:
+        return {
+            'success': False,
+            'error': f'XML parsing error: {str(e)}'
+        }
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Error processing JUnit XML: {str(e)}'
+        }
+
 def run_async_in_thread(coro):
     """Run async function in a thread to avoid event loop conflicts."""
     
@@ -333,7 +414,7 @@ def get_job_metadata_tool(job_name: str, build_id: str):
     """
     return run_async_in_thread(get_job_metadata_async(job_name, build_id))
 
-def get_e2e_test_logs_tool(job_name: str, build_id: str, test_name: str, include_full_log: bool = True):
+def get_e2e_test_logs_tool(job_name: str, build_id: str, test_name: str, include_full_log: bool = False):
     """Analyzes end-to-end test execution logs with source code tracing and failure analysis.
     
     This tool retrieves and analyzes e2e test logs from the openshift-e2e-test directory,
@@ -375,44 +456,82 @@ def get_junit_results_tool(job_name: str, build_id: str, test_name: str, parse_x
     
     This tool fetches JUnit XML files generated by e2e test runs, which contain structured
     test results including pass/fail status, execution times, error messages, and detailed
-    failure information. JUnit results are often more structured than raw logs.
+    failure information. The XML is automatically parsed to extract ONLY failed/errored tests.
 
     Args:
         job_name (str): The name of the Prow job containing e2e tests
         build_id (str): The specific build ID for the job run
         test_name (str): The test component name that generated JUnit results
-        parse_xml (bool, optional): Whether to provide structured parsing hints for XML content.
-                                   If True, includes guidance for extracting test results. Defaults to True.
+        parse_xml (bool, optional): Whether to parse XML and extract only failures.
+                                   If True, returns structured failure data. If False, returns raw XML.
+                                   Defaults to True.
     
     Returns:
-        str: JUnit test results content with parsing guidance if requested, 
-             or error message if results are not found
+        str: Structured failure summary if parse_xml=True, or raw XML if False.
+             Returns error message if results are not found.
     """
     result = run_async_in_thread(get_junit_results_async(job_name, build_id, test_name))
     
-    if parse_xml and isinstance(result, str) and not result.startswith("Could not find") and not result.startswith("Error"):
-        # Add XML parsing guidance for the LLM
-        guidance = """
-💡 JUNIT XML ANALYSIS TIPS:
-- Look for <failure> or <error> elements within <testcase> elements
-- Check 'name' and 'classname' attributes for test identification  
-- Examine failure messages in <failure message="..."> or <system-out> sections
-- Count total tests, failures, errors, and skipped from <testsuite> attributes
-- Look for patterns in failure messages to identify common root causes
-
-"""
-        result = guidance + result
+    # Check if we got an error message
+    if isinstance(result, str) and (result.startswith("Could not find") or result.startswith("Error")):
+        return result
     
+    # Parse XML content if requested
+    if parse_xml and isinstance(result, str) and result.startswith("JUnit test results"):
+        # Extract the XML content (it comes after the first line)
+        lines = result.split('\n', 1)
+        if len(lines) > 1:
+            xml_content = lines[1]
+            parsed = parse_junit_xml_failures(xml_content)
+            
+            if not parsed['success']:
+                # Fall back to raw XML if parsing fails
+                return f"⚠️ XML parsing failed: {parsed['error']}\n\nRaw content:\n{result[:2000]}..."
+            
+            # Format the parsed results nicely
+            output = "📊 JUNIT TEST RESULTS SUMMARY:\n\n"
+            output += f"📈 Overall Statistics:\n"
+            output += f"   Total Tests: {parsed['total_tests']}\n"
+            output += f"   ✅ Passed: {parsed['total_tests'] - parsed['total_failures'] - parsed['total_errors'] - parsed['total_skipped']}\n"
+            output += f"   ❌ Failed: {parsed['total_failures']}\n"
+            output += f"   💥 Errors: {parsed['total_errors']}\n"
+            output += f"   ⏭️  Skipped: {parsed['total_skipped']}\n\n"
+            
+            if parsed['failed_tests']:
+                output += f"❌ FAILED/ERRORED TESTS ({len(parsed['failed_tests'])} tests):\n\n"
+                for i, test in enumerate(parsed['failed_tests'][:20], 1):  # Limit to 20
+                    output += f"{i}. {test['name']}\n"
+                    output += f"   Type: {test['type'].upper()}\n"
+                    output += f"   Duration: {test['time']}s\n"
+                    if test['message']:
+                        output += f"   Message: {test['message']}\n"
+                    if test['details']:
+                        # Truncate long details
+                        details = test['details'][:300]
+                        if len(test['details']) > 300:
+                            details += "..."
+                        output += f"   Details: {details}\n"
+                    output += "\n"
+                
+                if len(parsed['failed_tests']) > 20:
+                    output += f"   ... and {len(parsed['failed_tests']) - 20} more failures\n"
+            else:
+                output += "✅ NO FAILURES OR ERRORS FOUND\n"
+            
+            return output
+    
+    # Return raw result if not parsing
     return result
 
-e2e_test_analyst_agent = Agent(
+e2e_test_analyst_agent = LlmAgent(
     model=LiteLlm(model=MODEL),
     name="e2e_test_analyst_agent",
     instruction=prompt.E2E_TEST_SPECIALIST_PROMPT,
     output_key="e2e_test_analysis_output",
+    input_schema=E2ETestAnalystInput,
     tools=[
         get_job_metadata_tool,
         get_e2e_test_logs_tool,
         get_junit_results_tool,
     ],
-) 
+)

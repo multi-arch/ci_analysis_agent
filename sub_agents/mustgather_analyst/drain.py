@@ -1,10 +1,9 @@
 import os
 import logging
-from typing import Tuple, Generator, Dict, List, Any, Optional
+from typing import Tuple, Generator
 
 import drain3
 from drain3.template_miner_config import TemplateMinerConfig
-from mcp.server.fastmcp import FastMCP
 
 
 
